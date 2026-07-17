@@ -121,7 +121,7 @@ export async function getRestaurants(
   };
 }
 
-/** Ficha completa de un establecimiento. */
+/** Ficha completa de un establecimiento, con nombre de quién lo creó/editó. */
 export async function getRestaurantById(
   id: string,
 ): Promise<RestaurantWithRelations | null> {
@@ -133,7 +133,31 @@ export async function getRestaurantById(
     .maybeSingle();
 
   if (error) throw new Error(`Error cargando el establecimiento: ${error.message}`);
-  return data as unknown as RestaurantWithRelations | null;
+  if (!data) return null;
+
+  const restaurant = data as unknown as RestaurantWithRelations;
+
+  // Nombres del creador y del último editor a través de la vista pública
+  // (profiles es privado; public_profiles solo expone id + nombre).
+  const ids = [restaurant.created_by, restaurant.updated_by].filter(
+    (v): v is string => Boolean(v),
+  );
+  if (ids.length > 0) {
+    const { data: people } = await supabase
+      .from("public_profiles")
+      .select("id, full_name")
+      .in("id", [...new Set(ids)]);
+
+    const byId = new Map((people ?? []).map((p) => [p.id, p.full_name]));
+    restaurant.creator_name = restaurant.created_by
+      ? byId.get(restaurant.created_by) ?? null
+      : null;
+    restaurant.updater_name = restaurant.updated_by
+      ? byId.get(restaurant.updated_by) ?? null
+      : null;
+  }
+
+  return restaurant;
 }
 
 /** Todos los establecimientos con coordenadas (para el mapa). */

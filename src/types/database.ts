@@ -112,6 +112,10 @@ export interface RestaurantWithRelations extends Restaurant {
   photos: Photo[];
   favorite_dishes: FavoriteDish[];
   videos: Video[];
+  /** Nombre de quién lo creó (vía vista public_profiles); null si no consta. */
+  creator_name?: string | null;
+  /** Nombre del último editor; null si no consta. */
+  updater_name?: string | null;
 }
 
 /** Fila de auditoría con el perfil de quien hizo el cambio. */

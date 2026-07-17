@@ -13,6 +13,7 @@ import {
   RotateCcw,
   StickyNote,
   ThumbsUp,
+  User,
   UtensilsCrossed,
 } from "lucide-react";
 import type { Metadata } from "next";
@@ -332,6 +333,25 @@ export default async function RestauranteDetallePage(
                       </Button>
                     ))}
                   </div>
+                </>
+              )}
+
+              {restaurant.creator_name && (
+                <>
+                  <Separator />
+                  <DataRow icon={<User className="size-4" />} label="Añadido por">
+                    <span>{restaurant.creator_name}</span>
+                    <span className="font-normal text-muted-foreground">
+                      {" · "}
+                      {formatDate(restaurant.created_at)}
+                    </span>
+                    {restaurant.updater_name &&
+                      restaurant.updated_by !== restaurant.created_by && (
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                          Última edición: {restaurant.updater_name}
+                        </span>
+                      )}
+                  </DataRow>
                 </>
               )}
             </CardContent>
