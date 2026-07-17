@@ -5,12 +5,15 @@ import type { RestaurantWithRelations } from "@/types/database";
 
 interface RestaurantGridProps {
   restaurants: RestaurantWithRelations[];
+  /** true si hay sesión iniciada (muestra botones de edición). */
+  canEdit: boolean;
   isAdmin: boolean;
   emptyMessage?: string;
 }
 
 export function RestaurantGrid({
   restaurants,
+  canEdit,
   isAdmin,
   emptyMessage = "No se han encontrado establecimientos con esos criterios.",
 }: RestaurantGridProps) {
@@ -29,6 +32,7 @@ export function RestaurantGrid({
         <RestaurantCard
           key={restaurant.id}
           restaurant={restaurant}
+          canEdit={canEdit}
           isAdmin={isAdmin}
         />
       ))}

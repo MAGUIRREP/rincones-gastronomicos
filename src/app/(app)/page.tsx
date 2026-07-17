@@ -8,7 +8,7 @@ import { RestaurantFilters } from "@/components/restaurants/restaurant-filters";
 import { RestaurantGrid } from "@/components/restaurants/restaurant-grid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { isCurrentUserAdmin } from "@/services/profile";
+import { getCurrentProfile } from "@/services/profile";
 import {
   getComunidades,
   getProvincias,
@@ -46,13 +46,15 @@ function StatCard({ icon, label, value }: StatCardProps) {
 }
 
 export default async function HomePage() {
-  const [stats, mapData, provincias, comunidades, isAdmin] = await Promise.all([
+  const [stats, mapData, provincias, comunidades, profile] = await Promise.all([
     getStats(),
     getRestaurantsForMap(),
     getProvincias(),
     getComunidades(),
-    isCurrentUserAdmin(),
+    getCurrentProfile(),
   ]);
+  const canEdit = Boolean(profile && !profile.is_blocked);
+  const isAdmin = canEdit && profile!.role === "admin";
 
   return (
     <div className="space-y-8">
@@ -84,12 +86,14 @@ export default async function HomePage() {
               {stats.total} establecimientos descubiertos por toda España
             </p>
           </div>
-          <Button asChild size="lg" className="shadow-md">
-            <Link href="/restaurantes/nuevo">
-              <Plus className="size-5" aria-hidden="true" />
-              Añadir establecimiento
-            </Link>
-          </Button>
+          {canEdit && (
+            <Button asChild size="lg" className="shadow-md">
+              <Link href="/restaurantes/nuevo">
+                <Plus className="size-5" aria-hidden="true" />
+                Añadir establecimiento
+              </Link>
+            </Button>
+          )}
         </div>
       </section>
 
@@ -153,6 +157,7 @@ export default async function HomePage() {
         </div>
         <RestaurantGrid
           restaurants={stats.latest}
+          canEdit={canEdit}
           isAdmin={isAdmin}
           emptyMessage="Todavía no hay establecimientos. ¡Añade el primero!"
         />
@@ -168,6 +173,7 @@ export default async function HomePage() {
         </div>
         <RestaurantGrid
           restaurants={stats.top.slice(0, 8)}
+          canEdit={canEdit}
           isAdmin={isAdmin}
           emptyMessage="Aún no hay establecimientos valorados."
         />

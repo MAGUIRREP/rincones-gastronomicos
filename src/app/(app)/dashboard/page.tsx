@@ -27,7 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatPrice } from "@/lib/format";
-import { isCurrentUserAdmin } from "@/services/profile";
+import { getCurrentProfile } from "@/services/profile";
 import { getRestaurantsForMap, getStats } from "@/services/restaurants";
 
 export const metadata: Metadata = {
@@ -83,11 +83,13 @@ function RankingList({
 }
 
 export default async function DashboardPage() {
-  const [stats, mapData, isAdmin] = await Promise.all([
+  const [stats, mapData, profile] = await Promise.all([
     getStats(),
     getRestaurantsForMap(),
-    isCurrentUserAdmin(),
+    getCurrentProfile(),
   ]);
+  const canEdit = Boolean(profile && !profile.is_blocked);
+  const isAdmin = canEdit && profile!.role === "admin";
 
   const statCards = [
     {
@@ -240,6 +242,7 @@ export default async function DashboardPage() {
         </h2>
         <RestaurantGrid
           restaurants={stats.latest.slice(0, 4)}
+          canEdit={canEdit}
           isAdmin={isAdmin}
           emptyMessage="Todavía no hay establecimientos."
         />

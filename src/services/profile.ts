@@ -17,8 +17,3 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   return data ?? null;
 }
-
-export async function isCurrentUserAdmin(): Promise<boolean> {
-  const profile = await getCurrentProfile();
-  return profile?.role === "admin" && !profile.is_blocked;
-}

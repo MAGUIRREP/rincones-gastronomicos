@@ -6,18 +6,22 @@ import {
   SESSION_TIMEOUT_MINUTES,
 } from "@/lib/constants";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
-
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+/**
+ * La web es de lectura pública. Solo requieren sesión las rutas
+ * de escritura y administración.
+ */
+function isProtectedPath(pathname: string): boolean {
+  if (pathname.startsWith("/admin")) return true;
+  if (pathname === "/restaurantes/nuevo") return true;
+  if (/^\/restaurantes\/[^/]+\/editar/.test(pathname)) return true;
+  return false;
 }
 
 /**
  * Refresca la sesión de Supabase en cada petición y aplica:
  *  - expiración por inactividad (30 minutos)
- *  - redirección a /login conservando la URL original (redirectTo)
+ *  - protección de rutas de escritura con redirección a /login
+ *    conservando la URL original (redirectTo)
  *  - bloqueo de /admin para usuarios sin rol admin
  */
 export async function updateSession(request: NextRequest) {
@@ -70,13 +74,13 @@ export async function updateSession(request: NextRequest) {
   };
 
   if (!user) {
-    if (!isPublicPath(pathname)) {
+    if (isProtectedPath(pathname)) {
       return redirectToLogin();
     }
     return response;
   }
 
-  // ---- Expiración por inactividad ----
+  // ---- Expiración por inactividad (solo sesiones abiertas) ----
   const lastActivity = request.cookies.get(LAST_ACTIVITY_COOKIE)?.value;
   const now = Date.now();
   const timeoutMs = SESSION_TIMEOUT_MINUTES * 60 * 1000;
@@ -95,19 +99,20 @@ export async function updateSession(request: NextRequest) {
     maxAge: SESSION_TIMEOUT_MINUTES * 60,
   });
 
-  // Usuario autenticado que visita /login: mandarlo a la home.
+  // Usuario autenticado que visita /login: mandarlo a la home
+  // (o a la URL guardada en redirectTo).
   if (pathname === "/login") {
-    const url = request.nextUrl.clone();
     const redirectTo = request.nextUrl.searchParams.get("redirectTo");
-    url.pathname = "/";
-    url.search = "";
-    if (redirectTo && redirectTo.startsWith("/")) {
+    if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
       const target = request.nextUrl.clone();
       const [p, q] = redirectTo.split("?");
       target.pathname = p;
       target.search = q ? `?${q}` : "";
       return NextResponse.redirect(target);
     }
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

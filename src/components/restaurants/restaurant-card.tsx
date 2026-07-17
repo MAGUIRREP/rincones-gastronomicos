@@ -40,10 +40,16 @@ import type { RestaurantWithRelations } from "@/types/database";
 
 interface RestaurantCardProps {
   restaurant: RestaurantWithRelations;
+  /** true si hay sesión iniciada (puede editar y marcar favoritos). */
+  canEdit: boolean;
   isAdmin: boolean;
 }
 
-export function RestaurantCard({ restaurant, isAdmin }: RestaurantCardProps) {
+export function RestaurantCard({
+  restaurant,
+  canEdit,
+  isAdmin,
+}: RestaurantCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -109,27 +115,39 @@ export function RestaurantCard({ restaurant, isAdmin }: RestaurantCardProps) {
           {ESTABLISHMENT_TYPE_LABELS[restaurant.type]}
         </Badge>
 
-        <Button
-          variant="secondary"
-          size="icon"
-          disabled={isPending}
-          onClick={handleToggleFavorite}
-          aria-label={
-            restaurant.is_favorite
-              ? `Quitar ${restaurant.name} de favoritos`
-              : `Añadir ${restaurant.name} a favoritos`
-          }
-          aria-pressed={restaurant.is_favorite}
-          className="absolute right-3 top-3 size-8 rounded-full shadow-sm"
-        >
-          <Heart
-            className={cn(
-              "size-4 transition-colors",
-              restaurant.is_favorite && "fill-red-500 text-red-500",
-            )}
-            aria-hidden="true"
-          />
-        </Button>
+        {canEdit ? (
+          <Button
+            variant="secondary"
+            size="icon"
+            disabled={isPending}
+            onClick={handleToggleFavorite}
+            aria-label={
+              restaurant.is_favorite
+                ? `Quitar ${restaurant.name} de favoritos`
+                : `Añadir ${restaurant.name} a favoritos`
+            }
+            aria-pressed={restaurant.is_favorite}
+            className="absolute right-3 top-3 size-8 rounded-full shadow-sm"
+          >
+            <Heart
+              className={cn(
+                "size-4 transition-colors",
+                restaurant.is_favorite && "fill-red-500 text-red-500",
+              )}
+              aria-hidden="true"
+            />
+          </Button>
+        ) : (
+          restaurant.is_favorite && (
+            <span
+              className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-secondary shadow-sm"
+              role="img"
+              aria-label="Favorito de Álvaro y Mariano"
+            >
+              <Heart className="size-4 fill-red-500 text-red-500" aria-hidden="true" />
+            </span>
+          )
+        )}
       </div>
 
       <CardContent className="space-y-2 p-4">
@@ -166,12 +184,14 @@ export function RestaurantCard({ restaurant, isAdmin }: RestaurantCardProps) {
       </CardContent>
 
       <CardFooter className="flex gap-2 border-t p-3">
-        <Button asChild variant="outline" size="sm" className="flex-1">
-          <Link href={`/restaurantes/${restaurant.id}/editar`}>
-            <Pencil className="size-3.5" aria-hidden="true" />
-            Editar
-          </Link>
-        </Button>
+        {canEdit && (
+          <Button asChild variant="outline" size="sm" className="flex-1">
+            <Link href={`/restaurantes/${restaurant.id}/editar`}>
+              <Pencil className="size-3.5" aria-hidden="true" />
+              Editar
+            </Link>
+          </Button>
+        )}
         <Button asChild variant="outline" size="sm" className="flex-1">
           <Link
             href={
@@ -184,7 +204,7 @@ export function RestaurantCard({ restaurant, isAdmin }: RestaurantCardProps) {
             Mapa
           </Link>
         </Button>
-        {isAdmin && (
+        {canEdit && isAdmin && (
           <Button
             variant="outline"
             size="sm"

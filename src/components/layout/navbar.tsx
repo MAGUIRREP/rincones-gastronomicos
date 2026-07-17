@@ -3,6 +3,7 @@
 import {
   LayoutDashboard,
   List,
+  LogIn,
   LogOut,
   Map as MapIcon,
   Menu,
@@ -44,22 +45,24 @@ const NAV_LINKS = [
 ];
 
 interface NavbarProps {
-  profile: Profile;
+  /** Perfil del usuario autenticado, o null para visitantes anónimos. */
+  profile: Profile | null;
 }
 
 export function Navbar({ profile }: NavbarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isAdmin = profile.role === "admin";
-  const initials =
-    profile.full_name
-      .split(" ")
-      .map((w) => w[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || profile.email[0]?.toUpperCase();
+  const isAdmin = profile?.role === "admin";
+  const initials = profile
+    ? profile.full_name
+        .split(" ")
+        .map((w) => w[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || profile.email[0]?.toUpperCase()
+    : "";
 
   const linkClass = (href: string) =>
     cn(
@@ -142,60 +145,73 @@ export function Navbar({ profile }: NavbarProps) {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <Button asChild size="sm" className="hidden sm:inline-flex">
-            <Link href="/restaurantes/nuevo">
-              <Plus className="size-4" aria-hidden="true" />
-              Añadir
-            </Link>
-          </Button>
-          <Button asChild size="icon" className="sm:hidden" aria-label="Añadir establecimiento">
-            <Link href="/restaurantes/nuevo">
-              <Plus className="size-4" />
-            </Link>
-          </Button>
+          {profile && (
+            <>
+              <Button asChild size="sm" className="hidden sm:inline-flex">
+                <Link href="/restaurantes/nuevo">
+                  <Plus className="size-4" aria-hidden="true" />
+                  Añadir
+                </Link>
+              </Button>
+              <Button asChild size="icon" className="sm:hidden" aria-label="Añadir establecimiento">
+                <Link href="/restaurantes/nuevo">
+                  <Plus className="size-4" />
+                </Link>
+              </Button>
+            </>
+          )}
 
           <ThemeToggle />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                aria-label="Menú de usuario"
-              >
-                <Avatar className="size-8">
-                  <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="flex flex-col">
-                <span>{profile.full_name || "Usuario"}</span>
-                <span className="text-xs font-normal text-muted-foreground">
-                  {profile.email}
-                </span>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {isAdmin && (
-                <DropdownMenuItem asChild>
-                  <Link href="/admin">
-                    <ShieldCheck className="size-4" />
-                    Administración
-                  </Link>
+          {profile ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full"
+                  aria-label="Menú de usuario"
+                >
+                  <Avatar className="size-8">
+                    <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="flex flex-col">
+                  <span>{profile.full_name || "Usuario"}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {profile.email}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">
+                      <ShieldCheck className="size-4" />
+                      Administración
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => logoutAction()}
+                >
+                  <LogOut className="size-4" />
+                  Cerrar sesión
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => logoutAction()}
-              >
-                <LogOut className="size-4" />
-                Cerrar sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/login">
+                <LogIn className="size-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Iniciar sesión</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </nav>
     </header>

@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { InactivityWatcher } from "@/components/layout/inactivity-watcher";
@@ -7,9 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/database";
 
 /**
- * Layout de la zona autenticada: barra de navegación + control
- * de inactividad. El proxy ya redirige a /login si no hay sesión,
- * pero se comprueba también aquí (defensa en profundidad).
+ * Layout general: la web es de lectura pública, así que no se exige
+ * sesión aquí. Si hay usuario se carga su perfil (para el menú y los
+ * botones de edición) y se activa el control de inactividad.
  */
 export default async function AppLayout({
   children,
@@ -20,19 +19,14 @@ export default async function AppLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single<Profile>();
-
-  if (!profile || profile.is_blocked) {
-    await supabase.auth.signOut();
-    redirect("/login");
+  let profile: Profile | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single<Profile>();
+    profile = data && !data.is_blocked ? data : null;
   }
 
   return (
@@ -44,9 +38,11 @@ export default async function AppLayout({
       <footer className="border-t py-6 text-center text-sm text-muted-foreground">
         Hecho con 🍴 por Álvaro y Mariano
       </footer>
-      <Suspense fallback={null}>
-        <InactivityWatcher />
-      </Suspense>
+      {profile && (
+        <Suspense fallback={null}>
+          <InactivityWatcher />
+        </Suspense>
+      )}
     </>
   );
 }

@@ -33,7 +33,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ESTABLISHMENT_TYPE_LABELS } from "@/lib/constants";
 import { formatDate, formatPrice } from "@/lib/format";
+import { getGoogleMapsUrl } from "@/lib/maps";
 import { getYouTubeEmbedUrl } from "@/lib/youtube";
+import { getCurrentProfile } from "@/services/profile";
 import { getRestaurantById } from "@/services/restaurants";
 
 export async function generateMetadata(
@@ -81,8 +83,13 @@ export default async function RestauranteDetallePage(
   props: PageProps<"/restaurantes/[id]">,
 ) {
   const { id } = await props.params;
-  const restaurant = await getRestaurantById(id).catch(() => null);
+  const [restaurant, profile] = await Promise.all([
+    getRestaurantById(id).catch(() => null),
+    getCurrentProfile(),
+  ]);
   if (!restaurant) notFound();
+
+  const canEdit = Boolean(profile && !profile.is_blocked);
 
   const fullAddress = [
     restaurant.address,
@@ -138,12 +145,14 @@ export default async function RestauranteDetallePage(
             )}
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/restaurantes/${restaurant.id}/editar`}>
-            <Pencil className="size-4" aria-hidden="true" />
-            Editar
-          </Link>
-        </Button>
+        {canEdit && (
+          <Button asChild>
+            <Link href={`/restaurantes/${restaurant.id}/editar`}>
+              <Pencil className="size-4" aria-hidden="true" />
+              Editar
+            </Link>
+          </Button>
+        )}
       </header>
 
       {/* Galería */}
@@ -287,6 +296,18 @@ export default async function RestauranteDetallePage(
                   {formatDate(restaurant.visit_date)}
                 </DataRow>
               )}
+
+              {/* Reseñas en Google Maps (se abren fuera de la web) */}
+              <Button asChild variant="outline" className="w-full">
+                <a
+                  href={getGoogleMapsUrl(restaurant)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MapPin className="size-4" aria-hidden="true" />
+                  Ver en Google Maps (reseñas)
+                </a>
+              </Button>
 
               {socials.length > 0 && (
                 <>

@@ -35,9 +35,9 @@ export const metadata: Metadata = {
     description: APP_DESCRIPTION,
   },
   robots: {
-    // Aplicación privada: no indexar.
-    index: false,
-    follow: false,
+    // Web pública: indexable (las zonas privadas se excluyen en robots.ts).
+    index: true,
+    follow: true,
   },
   icons: {
     icon: "/favicon.ico",
