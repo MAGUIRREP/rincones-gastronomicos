@@ -1,5 +1,6 @@
 import { Heart, MapPin, Plus, Star, TrendingUp, Utensils } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { HomeMap } from "@/components/map/home-map";
@@ -55,23 +56,41 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Cabecera */}
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Los rincones gastronómicos
-            <span className="block text-primary">de Álvaro y Mariano</span>
-          </h1>
-          <p className="text-muted-foreground">
-            {stats.total} establecimientos descubiertos por toda España
-          </p>
+      {/* Cabecera con la foto de Álvaro y Mariano de fondo */}
+      <section
+        aria-label="Bienvenida"
+        className="relative overflow-hidden rounded-2xl shadow-md"
+      >
+        <Image
+          src="/banner.jpg"
+          alt="Álvaro y Mariano con una ciudad de fondo"
+          fill
+          priority
+          sizes="(max-width: 1280px) 100vw, 1216px"
+          className="object-cover object-[center_30%]"
+        />
+        {/* Degradado para garantizar contraste del texto sobre la foto */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/15"
+        />
+        <div className="relative flex min-h-56 flex-col justify-end gap-4 p-5 sm:min-h-64 sm:flex-row sm:items-end sm:justify-between sm:p-8 lg:min-h-72">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-sm sm:text-4xl">
+              Los rincones gastronómicos
+              <span className="block text-primary">de Álvaro y Mariano</span>
+            </h1>
+            <p className="text-white/85">
+              {stats.total} establecimientos descubiertos por toda España
+            </p>
+          </div>
+          <Button asChild size="lg" className="shadow-md">
+            <Link href="/restaurantes/nuevo">
+              <Plus className="size-5" aria-hidden="true" />
+              Añadir establecimiento
+            </Link>
+          </Button>
         </div>
-        <Button asChild size="lg" className="shadow-md">
-          <Link href="/restaurantes/nuevo">
-            <Plus className="size-5" aria-hidden="true" />
-            Añadir establecimiento
-          </Link>
-        </Button>
       </section>
 
       {/* Estadísticas rápidas */}
