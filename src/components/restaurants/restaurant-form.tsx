@@ -22,6 +22,7 @@ import { toast } from "sonner";
 
 import {
   createRestaurantAction,
+  resolveGoogleMapsUrlAction,
   updateRestaurantAction,
 } from "@/app/actions/restaurants";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ESTABLISHMENT_TYPES } from "@/lib/constants";
+import {
+  extractCoordsFromGoogleMapsUrl,
+  isShortGoogleMapsUrl,
+} from "@/lib/maps";
 import { cn } from "@/lib/utils";
 import {
   restaurantSchema,
@@ -120,6 +125,7 @@ export function RestaurantForm({
       latitude: restaurant?.latitude ?? null,
       longitude: restaurant?.longitude ?? null,
       phone: restaurant?.phone ?? "",
+      google_maps_url: restaurant?.google_maps_url ?? "",
       website: restaurant?.website ?? "",
       instagram: restaurant?.instagram ?? "",
       facebook: restaurant?.facebook ?? "",
@@ -154,6 +160,37 @@ export function RestaurantForm({
     if (!name) return;
     dishes.append({ name });
     setNewDish("");
+  };
+
+  /**
+   * Al pegar un enlace de Google Maps se extraen las coordenadas
+   * automáticamente (los enlaces cortos se expanden en el servidor).
+   */
+  const [resolvingMaps, setResolvingMaps] = useState(false);
+  const handleGoogleMapsUrl = async (rawUrl: string) => {
+    const url = rawUrl.trim();
+    if (!url) return;
+
+    let target = url;
+    if (isShortGoogleMapsUrl(url)) {
+      setResolvingMaps(true);
+      const result = await resolveGoogleMapsUrlAction(url);
+      setResolvingMaps(false);
+      if (result.success && result.resolvedUrl) {
+        target = result.resolvedUrl;
+      }
+    }
+
+    const coords = extractCoordsFromGoogleMapsUrl(target);
+    if (coords) {
+      form.setValue("latitude", coords.latitude, { shouldValidate: true });
+      form.setValue("longitude", coords.longitude, { shouldValidate: true });
+      toast.success("Coordenadas extraídas del enlace de Google Maps");
+    } else {
+      toast.info(
+        "Enlace guardado. No se pudieron extraer coordenadas; puedes fijarlas en el mapa.",
+      );
+    }
   };
 
   const onSubmit = (values: RestaurantFormValues) => {
@@ -305,6 +342,38 @@ export function RestaurantForm({
                         value={field.value ?? ""}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="google_maps_url"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Enlace de Google Maps</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="url"
+                        placeholder="Pega aquí el enlace copiado de Google Maps (botón Compartir)"
+                        {...field}
+                        value={field.value ?? ""}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          void handleGoogleMapsUrl(e.target.value);
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          // Dejar que el input se actualice y procesar después.
+                          setTimeout(() => void handleGoogleMapsUrl(pasted), 0);
+                        }}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      {resolvingMaps
+                        ? "Resolviendo enlace…"
+                        : "En Google Maps: busca el local → Compartir → Copiar enlace. Las coordenadas se rellenan solas."}
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -54,6 +54,7 @@ export interface Restaurant {
   instagram: string | null;
   facebook: string | null;
   tiktok: string | null;
+  google_maps_url: string | null;
   schedule: string | null;
   avg_price: number | null;
   rating: number | null;

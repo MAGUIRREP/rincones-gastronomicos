@@ -190,6 +190,113 @@ export async function toggleFavoriteAction(
   return { success: true };
 }
 
+/**
+ * Expande un enlace corto de Google Maps (maps.app.goo.gl) siguiendo
+ * la redirección en servidor, para poder extraer las coordenadas.
+ */
+export async function resolveGoogleMapsUrlAction(
+  url: string,
+): Promise<{ success: boolean; resolvedUrl?: string; error?: string }> {
+  const trimmed = url.trim();
+  // Solo dominios de enlaces cortos de Google (evita usar esto como proxy).
+  if (!/^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(trimmed)) {
+    return { success: false, error: "Enlace no válido" };
+  }
+
+  try {
+    const res = await fetch(trimmed, {
+      method: "GET",
+      redirect: "follow",
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(8000),
+    });
+    return { success: true, resolvedUrl: res.url };
+  } catch {
+    return { success: false, error: "No se pudo resolver el enlace" };
+  }
+}
+
+/**
+ * Importa una imagen arrastrada desde otra web: se descarga en el
+ * servidor (evita problemas de CORS) y se sube a Storage.
+ */
+export async function importPhotoFromUrlAction(
+  restaurantId: string,
+  imageUrl: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sesión expirada" };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(imageUrl);
+  } catch {
+    return { success: false, error: "URL de imagen no válida" };
+  }
+
+  // Solo HTTPS hacia hosts públicos (protección SSRF básica).
+  if (parsed.protocol !== "https:") {
+    return { success: false, error: "Solo se admiten imágenes por HTTPS" };
+  }
+  if (
+    /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|\[)/i.test(
+      parsed.hostname,
+    )
+  ) {
+    return { success: false, error: "Host no permitido" };
+  }
+
+  const EXT_BY_TYPE: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/avif": "avif",
+  };
+
+  try {
+    const res = await fetch(parsed, {
+      headers: { "User-Agent": "Mozilla/5.0", Accept: "image/*" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      return { success: false, error: `No se pudo descargar la imagen (${res.status})` };
+    }
+
+    const contentType = (res.headers.get("content-type") ?? "").split(";")[0];
+    const ext = EXT_BY_TYPE[contentType];
+    if (!ext) {
+      return {
+        success: false,
+        error: "El enlace no es una imagen compatible (JPG, PNG, WebP o AVIF)",
+      };
+    }
+
+    const buffer = await res.arrayBuffer();
+    if (buffer.byteLength > 5 * 1024 * 1024) {
+      return { success: false, error: "La imagen supera el límite de 5 MB" };
+    }
+    if (buffer.byteLength === 0) {
+      return { success: false, error: "La imagen está vacía" };
+    }
+
+    const path = `${restaurantId}/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PHOTOS_BUCKET)
+      .upload(path, buffer, {
+        contentType,
+        cacheControl: "31536000",
+      });
+    if (uploadError) return { success: false, error: uploadError.message };
+
+    return addPhotoAction(restaurantId, path, false);
+  } catch {
+    return { success: false, error: "No se pudo descargar la imagen" };
+  }
+}
+
 /** Registra una foto subida a Storage en la tabla photos. */
 export async function addPhotoAction(
   restaurantId: string,

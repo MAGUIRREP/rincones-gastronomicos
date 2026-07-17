@@ -64,6 +64,24 @@ export const restaurantSchema = z.object({
     .nullable()
     .optional(),
   phone: optionalTrimmed(30),
+  google_maps_url: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : v))
+    .pipe(
+      z.union([
+        z
+          .string()
+          .max(1000)
+          .regex(
+            /^https:\/\/((www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps)/i,
+            "Debe ser un enlace de Google Maps",
+          ),
+        z.null(),
+      ]),
+    )
+    .nullable()
+    .optional(),
   website: optionalUrl,
   instagram: optionalUrl,
   facebook: optionalUrl,

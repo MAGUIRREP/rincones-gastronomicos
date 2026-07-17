@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import {
   addPhotoAction,
   deletePhotoAction,
+  importPhotoFromUrlAction,
   setMainPhotoAction,
 } from "@/app/actions/restaurants";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ export function PhotoManager({ restaurantId, photos }: PhotoManagerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [busyPhotoId, setBusyPhotoId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -112,6 +114,49 @@ export function PhotoManager({ restaurantId, photos }: PhotoManagerProps) {
     setBusyPhotoId(null);
   };
 
+  /** Extrae la URL de imagen de un arrastre desde otra pestaña/web. */
+  const extractDraggedImageUrl = (dt: DataTransfer): string | null => {
+    const uri = dt.getData("text/uri-list") || dt.getData("text/plain");
+    if (uri && /^https?:\/\//i.test(uri.trim())) return uri.trim().split("\n")[0];
+
+    const html = dt.getData("text/html");
+    if (html) {
+      const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (match) return match[1];
+    }
+    return null;
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+
+    // 1) Archivos arrastrados desde el disco o desde el escritorio.
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await handleFiles(e.dataTransfer.files);
+      return;
+    }
+
+    // 2) Imagen arrastrada directamente desde otra web:
+    //    se descarga en el servidor (sin problemas de CORS).
+    const url = extractDraggedImageUrl(e.dataTransfer);
+    if (!url) {
+      toast.error("No se reconoció ninguna imagen en lo que has arrastrado");
+      return;
+    }
+
+    setUploading(true);
+    const result = await importPhotoFromUrlAction(restaurantId, url);
+    setUploading(false);
+
+    if (result.success) {
+      toast.success("Imagen importada");
+      router.refresh();
+    } else {
+      toast.error(result.error ?? "No se pudo importar la imagen");
+    }
+  };
+
   const handleSetMain = async (photoId: string) => {
     setBusyPhotoId(photoId);
     const result = await setMainPhotoAction(photoId);
@@ -136,25 +181,57 @@ export function PhotoManager({ restaurantId, photos }: PhotoManagerProps) {
         aria-label="Seleccionar fotografías para subir"
       />
 
-      <Button
-        type="button"
-        variant="outline"
-        disabled={uploading}
-        onClick={() => inputRef.current?.click()}
-        className="w-full border-dashed py-8"
+      {/* Zona de subida: clic para elegir o arrastrar y soltar */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Añadir fotografías: haz clic para elegir archivos o arrastra imágenes aquí"
+        onClick={() => !uploading && inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !uploading) {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOver(false);
+          }
+        }}
+        onDrop={handleDrop}
+        className={cn(
+          "flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-sm transition-colors",
+          "focus-visible:outline-2 focus-visible:outline-ring",
+          dragOver
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-border text-muted-foreground hover:border-primary/50 hover:bg-accent/50",
+          uploading && "pointer-events-none opacity-70",
+        )}
       >
         {uploading ? (
           <>
-            <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-            Comprimiendo y subiendo…
+            <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+            <span>Procesando imagen…</span>
           </>
         ) : (
           <>
-            <ImagePlus className="size-5" aria-hidden="true" />
-            Añadir fotografías (se comprimen automáticamente)
+            <ImagePlus className="size-6" aria-hidden="true" />
+            <span className="text-center font-medium">
+              {dragOver
+                ? "¡Suelta aquí las imágenes!"
+                : "Haz clic para elegir o arrastra imágenes aquí"}
+            </span>
+            <span className="text-center text-xs">
+              Vale arrastrar desde el explorador o directamente desde otra web.
+              Se comprimen automáticamente.
+            </span>
           </>
         )}
-      </Button>
+      </div>
 
       {photos.length > 0 && (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
