@@ -46,7 +46,7 @@ export function PhotoManager({ restaurantId, photos }: PhotoManagerProps) {
   const [busyPhotoId, setBusyPhotoId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const handleFiles = async (files: FileList | null) => {
+  const handleFiles = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
     setUploading(true);
 
@@ -114,32 +114,101 @@ export function PhotoManager({ restaurantId, photos }: PhotoManagerProps) {
     setBusyPhotoId(null);
   };
 
-  /** Extrae la URL de imagen de un arrastre desde otra pestaña/web. */
-  const extractDraggedImageUrl = (dt: DataTransfer): string | null => {
+  /** Extrae TODAS las URLs candidatas de un arrastre desde otra web. */
+  const extractDraggedImageUrls = (dt: DataTransfer): string[] => {
     const clean = (u: string) =>
       u.trim().replaceAll("&amp;", "&").split(/\s+/)[0];
+    const urls: string[] = [];
+    const push = (u: string | undefined | null) => {
+      if (u && /^https?:\/\//i.test(u.trim())) urls.push(clean(u));
+    };
 
-    // 1) El <img> del HTML arrastrado suele traer la URL REAL de la imagen
-    //    (Google Fotos, resultados de Google, etc.), aunque la uri-list
-    //    apunte a la página que la contiene.
+    // El <img> del HTML arrastrado suele traer la URL real de la imagen
+    // (Google Fotos, resultados de Google…), aunque la uri-list apunte
+    // a la página que la contiene.
     const html = dt.getData("text/html");
     if (html) {
-      const src = html.match(/<img[^>]+\bsrc=["']([^"']+)["']/i);
-      if (src && /^https?:\/\//i.test(src[1])) return clean(src[1]);
-      // srcset: coger la primera URL.
-      const srcset = html.match(/<img[^>]+\bsrcset=["']([^"']+)["']/i);
-      if (srcset) {
-        const first = srcset[1].split(",")[0];
-        if (/^https?:\/\//i.test(first.trim())) return clean(first);
+      for (const m of html.matchAll(/<img[^>]+\bsrc=["']([^"']+)["']/gi)) {
+        push(m[1]);
+      }
+      for (const m of html.matchAll(/<img[^>]+\bsrcset=["']([^"']+)["']/gi)) {
+        // Del srcset, la última entrada suele ser la de mayor resolución.
+        const parts = m[1].split(",").map((p) => p.trim().split(/\s+/)[0]);
+        push(parts[parts.length - 1]);
+        push(parts[0]);
       }
     }
 
-    // 2) Fallback: la URL directa arrastrada (uri-list o texto plano).
     const uri = dt.getData("text/uri-list") || dt.getData("text/plain");
-    if (uri && /^https?:\/\//i.test(uri.trim())) {
-      return clean(uri.split("\n").find((l) => l.trim() && !l.startsWith("#")) ?? uri);
+    if (uri) {
+      for (const line of uri.split("\n")) {
+        if (line.trim() && !line.startsWith("#")) push(line);
+      }
     }
-    return null;
+
+    return [...new Set(urls)];
+  };
+
+  /**
+   * Variantes de una URL de googleusercontent: las miniaturas llevan
+   * un sufijo de tamaño (=w408-h306-no…) que se puede cambiar por
+   * =s0 (resolución completa, sin recortes).
+   */
+  const withGoogleVariants = (url: string): string[] => {
+    try {
+      const u = new URL(url);
+      if (!u.hostname.endsWith("googleusercontent.com")) return [url];
+      const eqIdx = u.pathname.lastIndexOf("=");
+      if (eqIdx > 0) {
+        const full = new URL(u);
+        full.pathname = `${u.pathname.slice(0, eqIdx)}=s0`;
+        full.search = "";
+        return [full.toString(), url];
+      }
+      return [`${u.origin}${u.pathname}=s0`, url];
+    } catch {
+      return [url];
+    }
+  };
+
+  /** Firma binaria mínima: ¿estos bytes parecen una imagen? */
+  const looksLikeImage = (head: Uint8Array): boolean => {
+    const ascii = (s: number, e: number) => String.fromCharCode(...head.slice(s, e));
+    return (
+      (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) || // JPEG
+      (head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e) || // PNG
+      (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") || // WebP
+      ascii(4, 8) === "ftyp" || // AVIF/HEIF
+      ascii(0, 4) === "GIF8" // GIF
+    );
+  };
+
+  /**
+   * Intenta descargar la imagen DESDE EL NAVEGADOR del usuario:
+   * es la única forma de leer URLs ligadas a su sesión (Google Fotos).
+   * Si el CDN no permite CORS, falla y se pasa al intento en servidor.
+   */
+  const tryClientFetch = async (url: string): Promise<File | null> => {
+    try {
+      const res = await fetch(url, {
+        mode: "cors",
+        credentials: "omit",
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      if (blob.size === 0) return null;
+
+      let type = blob.type.split(";")[0];
+      if (!type.startsWith("image/")) {
+        const head = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+        if (!looksLikeImage(head)) return null;
+        type = "image/jpeg"; // la compresión lo normaliza a WebP igualmente
+      }
+      return new File([blob], "imagen-importada", { type });
+    } catch {
+      return null;
+    }
   };
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -152,24 +221,45 @@ export function PhotoManager({ restaurantId, photos }: PhotoManagerProps) {
       return;
     }
 
-    // 2) Imagen arrastrada directamente desde otra web:
-    //    se descarga en el servidor (sin problemas de CORS).
-    const url = extractDraggedImageUrl(e.dataTransfer);
-    if (!url) {
+    // 2) Imagen arrastrada desde otra web: probar cada URL candidata,
+    //    primero en el navegador (sesión del usuario) y luego en el
+    //    servidor (sin restricciones CORS).
+    const candidates = extractDraggedImageUrls(e.dataTransfer)
+      .flatMap(withGoogleVariants)
+      .filter((u, i, arr) => arr.indexOf(u) === i)
+      .slice(0, 6);
+
+    if (candidates.length === 0) {
       toast.error("No se reconoció ninguna imagen en lo que has arrastrado");
       return;
     }
 
     setUploading(true);
-    const result = await importPhotoFromUrlAction(restaurantId, url);
-    setUploading(false);
+    let lastError: string | null = null;
 
-    if (result.success) {
-      toast.success("Imagen importada");
-      router.refresh();
-    } else {
-      toast.error(result.error ?? "No se pudo importar la imagen");
+    for (const url of candidates) {
+      const file = await tryClientFetch(url);
+      if (file) {
+        setUploading(false);
+        await handleFiles([file]);
+        return;
+      }
+
+      const result = await importPhotoFromUrlAction(restaurantId, url);
+      if (result.success) {
+        setUploading(false);
+        toast.success("Imagen importada");
+        router.refresh();
+        return;
+      }
+      lastError = result.error ?? null;
     }
+
+    setUploading(false);
+    toast.error(
+      lastError ??
+        "No se pudo importar. Descarga la imagen y arrástrala desde tu dispositivo.",
+    );
   };
 
   const handleSetMain = async (photoId: string) => {
