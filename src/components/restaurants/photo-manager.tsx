@@ -116,13 +116,28 @@ export function PhotoManager({ restaurantId, photos }: PhotoManagerProps) {
 
   /** Extrae la URL de imagen de un arrastre desde otra pestaña/web. */
   const extractDraggedImageUrl = (dt: DataTransfer): string | null => {
-    const uri = dt.getData("text/uri-list") || dt.getData("text/plain");
-    if (uri && /^https?:\/\//i.test(uri.trim())) return uri.trim().split("\n")[0];
+    const clean = (u: string) =>
+      u.trim().replaceAll("&amp;", "&").split(/\s+/)[0];
 
+    // 1) El <img> del HTML arrastrado suele traer la URL REAL de la imagen
+    //    (Google Fotos, resultados de Google, etc.), aunque la uri-list
+    //    apunte a la página que la contiene.
     const html = dt.getData("text/html");
     if (html) {
-      const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-      if (match) return match[1];
+      const src = html.match(/<img[^>]+\bsrc=["']([^"']+)["']/i);
+      if (src && /^https?:\/\//i.test(src[1])) return clean(src[1]);
+      // srcset: coger la primera URL.
+      const srcset = html.match(/<img[^>]+\bsrcset=["']([^"']+)["']/i);
+      if (srcset) {
+        const first = srcset[1].split(",")[0];
+        if (/^https?:\/\//i.test(first.trim())) return clean(first);
+      }
+    }
+
+    // 2) Fallback: la URL directa arrastrada (uri-list o texto plano).
+    const uri = dt.getData("text/uri-list") || dt.getData("text/plain");
+    if (uri && /^https?:\/\//i.test(uri.trim())) {
+      return clean(uri.split("\n").find((l) => l.trim() && !l.startsWith("#")) ?? uri);
     }
     return null;
   };

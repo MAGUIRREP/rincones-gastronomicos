@@ -249,37 +249,54 @@ export async function importPhotoFromUrlAction(
     return { success: false, error: "Host no permitido" };
   }
 
-  const EXT_BY_TYPE: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/avif": "avif",
-  };
-
   try {
     const res = await fetch(parsed, {
-      headers: { "User-Agent": "Mozilla/5.0", Accept: "image/*" },
-      signal: AbortSignal.timeout(15000),
+      // Cabeceras "de navegador": algunos CDN (Google) rechazan peticiones
+      // sin User-Agent/Referer realistas y devuelven HTML en su lugar.
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        Accept: "image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8",
+        Referer: `${parsed.protocol}//${parsed.hostname}/`,
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) {
       return { success: false, error: `No se pudo descargar la imagen (${res.status})` };
     }
 
-    const contentType = (res.headers.get("content-type") ?? "").split(";")[0];
-    const ext = EXT_BY_TYPE[contentType];
-    if (!ext) {
-      return {
-        success: false,
-        error: "El enlace no es una imagen compatible (JPG, PNG, WebP o AVIF)",
-      };
-    }
-
     const buffer = await res.arrayBuffer();
-    if (buffer.byteLength > 5 * 1024 * 1024) {
-      return { success: false, error: "La imagen supera el límite de 5 MB" };
-    }
     if (buffer.byteLength === 0) {
       return { success: false, error: "La imagen está vacía" };
+    }
+    if (buffer.byteLength > 10 * 1024 * 1024) {
+      return { success: false, error: "La imagen supera el límite de 10 MB" };
+    }
+
+    // La verdad la dan los bytes reales, no la cabecera Content-Type
+    // (Google Fotos y otros CDN mienten o no la envían).
+    const detected = detectImageType(buffer);
+    const headerType = (res.headers.get("content-type") ?? "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    let contentType: string;
+    let ext: string;
+
+    if (detected) {
+      ({ contentType, ext } = detected);
+    } else if (headerType.startsWith("image/")) {
+      // Fallback: confiar en la cabecera si dice ser imagen.
+      contentType = headerType;
+      ext = headerType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+    } else {
+      return {
+        success: false,
+        error:
+          "No se pudo reconocer una imagen en ese enlace. Prueba a descargarla y arrastrarla desde tu dispositivo.",
+      };
     }
 
     const path = `${restaurantId}/${crypto.randomUUID()}.${ext}`;
@@ -295,6 +312,53 @@ export async function importPhotoFromUrlAction(
   } catch {
     return { success: false, error: "No se pudo descargar la imagen" };
   }
+}
+
+/**
+ * Detecta el tipo de imagen por sus "magic bytes" (firma binaria),
+ * independientemente de la cabecera Content-Type. Devuelve el
+ * content-type y la extensión, o null si no es una imagen admitida.
+ */
+function detectImageType(
+  buffer: ArrayBuffer,
+): { contentType: string; ext: string } | null {
+  const b = new Uint8Array(buffer.slice(0, 16));
+  const ascii = (start: number, end: number) =>
+    String.fromCharCode(...b.slice(start, end));
+
+  // JPEG: FF D8 FF
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
+    return { contentType: "image/jpeg", ext: "jpg" };
+  }
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    b[0] === 0x89 &&
+    b[1] === 0x50 &&
+    b[2] === 0x4e &&
+    b[3] === 0x47 &&
+    b[4] === 0x0d &&
+    b[5] === 0x0a &&
+    b[6] === 0x1a &&
+    b[7] === 0x0a
+  ) {
+    return { contentType: "image/png", ext: "png" };
+  }
+  // WebP: "RIFF"????"WEBP"
+  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") {
+    return { contentType: "image/webp", ext: "webp" };
+  }
+  // AVIF / HEIF: bytes 4-8 "ftyp" y marca "avif"/"avis"/"mif1"/"heic"
+  if (ascii(4, 8) === "ftyp") {
+    const brand = ascii(8, 12);
+    if (["avif", "avis", "mif1", "miaf"].includes(brand)) {
+      return { contentType: "image/avif", ext: "avif" };
+    }
+  }
+  // GIF: "GIF8"
+  if (ascii(0, 4) === "GIF8") {
+    return { contentType: "image/gif", ext: "gif" };
+  }
+  return null;
 }
 
 /** Registra una foto subida a Storage en la tabla photos. */
