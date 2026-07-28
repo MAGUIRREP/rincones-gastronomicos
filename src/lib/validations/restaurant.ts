@@ -51,6 +51,12 @@ export const restaurantSchema = z.object({
     .max(52)
     .nullable()
     .optional(),
+  country: z
+    .string()
+    .trim()
+    .min(2, "Indica el país")
+    .max(60, "Máximo 60 caracteres")
+    .default("España"),
   latitude: z
     .number()
     .min(-90, "Latitud fuera de rango")
@@ -137,6 +143,20 @@ export const restaurantSchema = z.object({
     .max(10, "Máximo 10 vídeos")
     .default([]),
 });
+
+/** País por defecto de la aplicación. */
+export const DEFAULT_COUNTRY = "España";
+
+/** ¿El país es España? Tolera mayúsculas, acentos y "Spain". */
+export function isSpain(country: string | null | undefined): boolean {
+  if (!country) return true; // sin valor => España (comportamiento histórico)
+  const normalized = country
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+  return normalized === "espana" || normalized === "spain";
+}
 
 export type RestaurantFormValues = z.input<typeof restaurantSchema>;
 export type RestaurantParsed = z.output<typeof restaurantSchema>;

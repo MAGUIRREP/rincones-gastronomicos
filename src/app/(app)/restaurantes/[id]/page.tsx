@@ -35,6 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { ESTABLISHMENT_TYPE_LABELS } from "@/lib/constants";
 import { formatDate, formatPrice } from "@/lib/format";
 import { getGoogleMapsUrl } from "@/lib/maps";
+import { isSpain } from "@/lib/validations/restaurant";
 import { getYouTubeEmbedUrl } from "@/lib/youtube";
 import { getCurrentProfile } from "@/services/profile";
 import { getRestaurantById } from "@/services/restaurants";
@@ -92,13 +93,18 @@ export default async function RestauranteDetallePage(
 
   const canEdit = Boolean(profile && !profile.is_blocked);
 
-  const fullAddress = [
-    restaurant.address,
-    restaurant.postal_code,
-    restaurant.municipio,
-    restaurant.provincia?.nombre,
-    restaurant.provincia?.comunidad?.nombre,
-  ]
+  // En España se detalla la jerarquía administrativa; fuera, dirección + país.
+  const fullAddress = (
+    isSpain(restaurant.country)
+      ? [
+          restaurant.address,
+          restaurant.postal_code,
+          restaurant.municipio,
+          restaurant.provincia?.nombre,
+          restaurant.provincia?.comunidad?.nombre,
+        ]
+      : [restaurant.address, restaurant.municipio, restaurant.country]
+  )
     .filter(Boolean)
     .join(", ");
 

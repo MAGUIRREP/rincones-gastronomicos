@@ -42,6 +42,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -59,6 +60,8 @@ import {
 } from "@/lib/maps";
 import { cn } from "@/lib/utils";
 import {
+  DEFAULT_COUNTRY,
+  isSpain,
   restaurantSchema,
   type RestaurantFormValues,
 } from "@/lib/validations/restaurant";
@@ -84,6 +87,20 @@ interface RestaurantFormProps {
 }
 
 const NONE = "none";
+
+/** Sugerencias de país para el datalist (se puede escribir cualquiera). */
+const SUGGESTED_COUNTRIES = [
+  "Portugal",
+  "Francia",
+  "Italia",
+  "Andorra",
+  "Alemania",
+  "Reino Unido",
+  "Países Bajos",
+  "Bélgica",
+  "Marruecos",
+  "Grecia",
+];
 
 function sectionIconClass() {
   return "flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary";
@@ -125,6 +142,7 @@ export function RestaurantForm({
       postal_code: restaurant?.postal_code ?? "",
       municipio: restaurant?.municipio ?? "",
       provincia_id: restaurant?.provincia_id ?? null,
+      country: restaurant?.country ?? DEFAULT_COUNTRY,
       latitude: restaurant?.latitude ?? null,
       longitude: restaurant?.longitude ?? null,
       phone: restaurant?.phone ?? "",
@@ -153,6 +171,28 @@ export function RestaurantForm({
         })) ?? [],
     },
   });
+
+  /**
+   * España vs. extranjero. Es estado propio (no derivado del país) para que
+   * el usuario pueda borrar y reescribir el país sin que el bloque cambie.
+   */
+  const [inSpain, setInSpain] = useState(isSpain(restaurant?.country));
+
+  const handleLocationScopeChange = (value: string) => {
+    const spain = value === "es";
+    setInSpain(spain);
+    if (spain) {
+      form.setValue("country", DEFAULT_COUNTRY, { shouldValidate: true });
+    } else {
+      // Fuera de España los datos administrativos españoles no aplican.
+      form.setValue("provincia_id", null);
+      form.setValue("municipio", "");
+      form.setValue("postal_code", "");
+      setComunidadId(null);
+      // Vacío para que el usuario escriba el país (el esquema lo exige).
+      form.setValue("country", "");
+    }
+  };
 
   const dishes = useFieldArray({ control: form.control, name: "favorite_dishes" });
   const videos = useFieldArray({ control: form.control, name: "videos" });
@@ -196,7 +236,12 @@ export function RestaurantForm({
     }
   };
 
-  const onSubmit = (values: RestaurantFormValues) => {
+  const onSubmit = (rawValues: RestaurantFormValues) => {
+    // Coherencia: en España se fuerza el país; fuera, no hay provincia.
+    const values: RestaurantFormValues = inSpain
+      ? { ...rawValues, country: DEFAULT_COUNTRY }
+      : { ...rawValues, provincia_id: null, municipio: null };
+
     startTransition(async () => {
       const result = isEdit
         ? await updateRestaurantAction(restaurant!.id, values)
@@ -331,6 +376,35 @@ export function RestaurantForm({
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* ¿España o extranjero? Determina qué campos se piden. */}
+            <FormItem className="space-y-2">
+              <FormLabel>¿Dónde está?</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  value={inSpain ? "es" : "other"}
+                  onValueChange={handleLocationScopeChange}
+                  className="flex flex-wrap gap-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="es" id="scope-es" />
+                    <FormLabel htmlFor="scope-es" className="font-normal">
+                      En España
+                    </FormLabel>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="other" id="scope-other" />
+                    <FormLabel htmlFor="scope-other" className="font-normal">
+                      Fuera de España
+                    </FormLabel>
+                  </div>
+                </RadioGroup>
+              </FormControl>
+              <p className="text-xs text-muted-foreground">
+                En España se piden municipio y provincia; fuera de España, solo
+                la dirección y el país.
+              </p>
+            </FormItem>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -383,91 +457,125 @@ export function RestaurantForm({
               />
               {/* Código Postal: oculto para simplificar el alta.
                   Sigue en la base de datos y conserva su valor al editar. */}
-              <FormField
-                control={form.control}
-                name="municipio"
-                render={({ field }) => (
+              {inSpain ? (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="municipio"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Municipio</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Ej: Madrid"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {/* Comunidad: filtro de provincias (la provincia determina la comunidad) */}
                   <FormItem>
-                    <FormLabel>Municipio</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Ej: Madrid"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {/* Comunidad: filtro de provincias (la provincia determina la comunidad) */}
-              <FormItem>
-                <FormLabel>Comunidad Autónoma</FormLabel>
-                <Select
-                  value={comunidadId ? String(comunidadId) : NONE}
-                  onValueChange={(v) => {
-                    const id = v === NONE ? null : Number(v);
-                    setComunidadId(id);
-                    const current = form.getValues("provincia_id");
-                    if (
-                      id &&
-                      current &&
-                      !provincias.some(
-                        (p) => p.id === current && p.comunidad_id === id,
-                      )
-                    ) {
-                      form.setValue("provincia_id", null);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-full" aria-label="Comunidad Autónoma">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>Sin especificar</SelectItem>
-                    {comunidades.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-              <FormField
-                control={form.control}
-                name="provincia_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Provincia</FormLabel>
+                    <FormLabel>Comunidad Autónoma</FormLabel>
                     <Select
-                      value={field.value ? String(field.value) : NONE}
+                      value={comunidadId ? String(comunidadId) : NONE}
                       onValueChange={(v) => {
                         const id = v === NONE ? null : Number(v);
-                        field.onChange(id);
-                        if (id) {
-                          const prov = provincias.find((p) => p.id === id);
-                          if (prov) setComunidadId(prov.comunidad_id);
+                        setComunidadId(id);
+                        const current = form.getValues("provincia_id");
+                        if (
+                          id &&
+                          current &&
+                          !provincias.some(
+                            (p) => p.id === current && p.comunidad_id === id,
+                          )
+                        ) {
+                          form.setValue("provincia_id", null);
                         }
                       }}
                     >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
+                      <SelectTrigger
+                        className="w-full"
+                        aria-label="Comunidad Autónoma"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>Sin especificar</SelectItem>
-                        {filteredProvincias.map((p) => (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {p.nombre}
+                        {comunidades.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.nombre}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
                   </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="provincia_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Provincia</FormLabel>
+                        <Select
+                          value={field.value ? String(field.value) : NONE}
+                          onValueChange={(v) => {
+                            const id = v === NONE ? null : Number(v);
+                            field.onChange(id);
+                            if (id) {
+                              const prov = provincias.find((p) => p.id === id);
+                              if (prov) setComunidadId(prov.comunidad_id);
+                            }
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value={NONE}>Sin especificar</SelectItem>
+                            {filteredProvincias.map((p) => (
+                              <SelectItem key={p.id} value={String(p.id)}>
+                                {p.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              ) : (
+                /* Fuera de España: basta con la dirección y el país. */
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>
+                        País <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          list="paises-sugeridos"
+                          placeholder="Ej: Portugal"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <datalist id="paises-sugeridos">
+                        {SUGGESTED_COUNTRIES.map((c) => (
+                          <option key={c} value={c} />
+                        ))}
+                      </datalist>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="latitude"

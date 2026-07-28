@@ -65,6 +65,7 @@ export async function getRestaurants(
       `observations.ilike.%${q}%`,
       `address.ilike.%${q}%`,
       `municipio.ilike.%${q}%`,
+      `country.ilike.%${q}%`,
     ];
     if (dishRestaurantIds && dishRestaurantIds.length > 0) {
       orParts.push(`id.in.(${dishRestaurantIds.join(",")})`);

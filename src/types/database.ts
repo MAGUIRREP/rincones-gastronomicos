@@ -47,6 +47,8 @@ export interface Restaurant {
   postal_code: string | null;
   municipio: string | null;
   provincia_id: number | null;
+  /** País. "España" usa municipio+provincia; otros solo dirección. */
+  country: string;
   latitude: number | null;
   longitude: number | null;
   phone: string | null;

@@ -36,6 +36,7 @@ import { ESTABLISHMENT_TYPE_LABELS } from "@/lib/constants";
 import { formatPrice } from "@/lib/format";
 import { getMainPhotoUrl } from "@/lib/photos";
 import { cn } from "@/lib/utils";
+import { isSpain } from "@/lib/validations/restaurant";
 import type { RestaurantWithRelations } from "@/types/database";
 
 interface RestaurantCardProps {
@@ -166,7 +167,10 @@ export function RestaurantCard({
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="line-clamp-1">
-            {[restaurant.municipio, restaurant.provincia?.nombre]
+            {(isSpain(restaurant.country)
+              ? [restaurant.municipio, restaurant.provincia?.nombre]
+              : [restaurant.municipio, restaurant.country]
+            )
               .filter(Boolean)
               .join(", ") || "Sin ubicación"}
           </span>
