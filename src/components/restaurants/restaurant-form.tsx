@@ -33,7 +33,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -113,6 +112,10 @@ export function RestaurantForm({
     [provincias, comunidadId],
   );
 
+  // Nota: postal_code, facebook, tiktok, visit_date y would_return ya no
+  // tienen campo visible en el formulario (alta simplificada), pero se
+  // mantienen aquí para que al editar conserven el valor que ya tuvieran
+  // en la base de datos en lugar de borrarse.
   const form = useForm<RestaurantFormValues>({
     resolver: zodResolver(restaurantSchema),
     defaultValues: {
@@ -378,25 +381,8 @@ export function RestaurantForm({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="postal_code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Código Postal</FormLabel>
-                    <FormControl>
-                      <Input
-                        inputMode="numeric"
-                        maxLength={5}
-                        placeholder="28005"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Código Postal: oculto para simplificar el alta.
+                  Sigue en la base de datos y conserva su valor al editar. */}
               <FormField
                 control={form.control}
                 name="municipio"
@@ -554,7 +540,7 @@ export function RestaurantForm({
             <div>
               <CardTitle>Multimedia y redes</CardTitle>
               <CardDescription>
-                Web, redes sociales y vídeos de YouTube
+                Web, Instagram y vídeos de YouTube
               </CardDescription>
             </div>
           </CardHeader>
@@ -599,42 +585,8 @@ export function RestaurantForm({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="facebook"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Facebook</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="url"
-                        placeholder="https://facebook.com/…"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tiktok"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>TikTok</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="url"
-                        placeholder="https://tiktok.com/@…"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Facebook y TikTok: ocultos para simplificar el alta.
+                  Siguen en la base de datos y conservan su valor al editar. */}
             </div>
 
             {/* Vídeos de YouTube */}
@@ -707,7 +659,7 @@ export function RestaurantForm({
             <div>
               <CardTitle>Valoración</CardTitle>
               <CardDescription>
-                Estrellas, precio, platos favoritos y visita
+                Estrellas, precio y platos favoritos
               </CardDescription>
             </div>
           </CardHeader>
@@ -783,38 +735,9 @@ export function RestaurantForm({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="visit_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha de visita</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Fecha de visita y ¿Repetirías?: ocultos para simplificar el
+                  alta. Siguen en la base de datos y conservan su valor. */}
               <div className="flex flex-col justify-end gap-3">
-                <FormField
-                  control={form.control}
-                  name="would_return"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-3">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value === true}
-                          onCheckedChange={(checked) =>
-                            field.onChange(checked === true ? true : false)
-                          }
-                          aria-label="¿Repetirías?"
-                        />
-                      </FormControl>
-                      <FormLabel className="!mt-0">¿Repetirías?</FormLabel>
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={form.control}
                   name="is_favorite"
