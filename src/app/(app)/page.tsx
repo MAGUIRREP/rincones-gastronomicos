@@ -63,18 +63,22 @@ export default async function HomePage() {
         aria-label="Bienvenida"
         className="relative overflow-hidden rounded-2xl shadow-md"
       >
+        {/* object-[center_25%]: encuadre que deja las caras dentro del
+            recorte panorámico del banner. */}
         <Image
           src="/banner.jpg"
-          alt="Álvaro y Mariano con una ciudad de fondo"
+          alt="Álvaro y Mariano con sus mujeres en una terraza de Cádiz"
           fill
           priority
           sizes="(max-width: 1280px) 100vw, 1216px"
-          className="object-cover object-[center_30%]"
+          className="object-cover object-[center_25%]"
         />
-        {/* Degradado para garantizar contraste del texto sobre la foto */}
+        {/* Degradado para garantizar contraste del texto sobre la foto.
+            En móvil es vertical (deja las caras despejadas arriba) y a
+            partir de sm es lateral, donde el texto va a la izquierda. */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/15"
+          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10 sm:bg-gradient-to-r sm:from-black/75 sm:via-black/45 sm:to-black/15"
         />
         <div className="relative flex min-h-56 flex-col justify-end gap-4 p-5 sm:min-h-64 sm:flex-row sm:items-end sm:justify-between sm:p-8 lg:min-h-72">
           <div className="space-y-1">
