@@ -20,6 +20,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { reverseGeocodeAction } from "@/app/actions/geocode";
 import {
   createRestaurantAction,
   resolveGoogleMapsUrlAction,
@@ -229,10 +230,85 @@ export function RestaurantForm({
       form.setValue("latitude", coords.latitude, { shouldValidate: true });
       form.setValue("longitude", coords.longitude, { shouldValidate: true });
       toast.success("Coordenadas extraídas del enlace de Google Maps");
+      // Con las coordenadas ya se puede completar dirección y ubicación.
+      await fillAddressFromCoords(coords.latitude, coords.longitude, {
+        silentWhenNothingToFill: true,
+      });
     } else {
       toast.info(
         "Enlace guardado. No se pudieron extraer coordenadas; puedes fijarlas en el mapa.",
       );
+    }
+  };
+
+  /**
+   * Completa dirección, municipio, provincia (o país si está fuera de
+   * España) a partir de unas coordenadas, mediante geocodificación
+   * inversa. Solo rellena los campos que estén vacíos, para no pisar
+   * nada que el usuario haya escrito a mano.
+   */
+  const [geocoding, setGeocoding] = useState(false);
+  const fillAddressFromCoords = async (
+    latitude: number,
+    longitude: number,
+    { silentWhenNothingToFill = false } = {},
+  ) => {
+    setGeocoding(true);
+    const result = await reverseGeocodeAction(latitude, longitude);
+    setGeocoding(false);
+
+    if (!result.success || !result.data) {
+      if (!silentWhenNothingToFill) {
+        toast.error(result.error ?? "No se pudo obtener la dirección");
+      }
+      return;
+    }
+
+    const data = result.data;
+    const filled: string[] = [];
+    const isEmpty = (value: unknown) =>
+      value === null || value === undefined || value === "";
+
+    if (data.address && isEmpty(form.getValues("address"))) {
+      form.setValue("address", data.address, { shouldValidate: true });
+      filled.push("dirección");
+    }
+    if (data.postalCode && isEmpty(form.getValues("postal_code"))) {
+      // El campo está oculto, pero se guarda igualmente.
+      form.setValue("postal_code", data.postalCode);
+    }
+
+    if (data.isSpain) {
+      setInSpain(true);
+      form.setValue("country", DEFAULT_COUNTRY);
+      if (data.municipio && isEmpty(form.getValues("municipio"))) {
+        form.setValue("municipio", data.municipio, { shouldValidate: true });
+        filled.push("municipio");
+      }
+      if (data.provinciaId && isEmpty(form.getValues("provincia_id"))) {
+        form.setValue("provincia_id", data.provinciaId, {
+          shouldValidate: true,
+        });
+        const prov = provincias.find((p) => p.id === data.provinciaId);
+        if (prov) setComunidadId(prov.comunidad_id);
+        filled.push("provincia y comunidad");
+      }
+    } else if (data.country) {
+      // Establecimiento en el extranjero: se cambia el modo y el país.
+      setInSpain(false);
+      form.setValue("country", data.country, { shouldValidate: true });
+      form.setValue("provincia_id", null);
+      setComunidadId(null);
+      if (data.municipio && isEmpty(form.getValues("municipio"))) {
+        form.setValue("municipio", data.municipio);
+      }
+      filled.push(`país (${data.country})`);
+    }
+
+    if (filled.length > 0) {
+      toast.success(`Se ha rellenado: ${filled.join(", ")}`);
+    } else if (!silentWhenNothingToFill) {
+      toast.info("No había nada que rellenar: los campos ya tenían valor.");
     }
   };
 
@@ -406,23 +482,7 @@ export function RestaurantForm({
             </FormItem>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem className="sm:col-span-2">
-                    <FormLabel>Dirección completa</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Calle, número…"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* El enlace va primero: al pegarlo se rellena el resto. */}
               <FormField
                 control={form.control}
                 name="google_maps_url"
@@ -449,8 +509,27 @@ export function RestaurantForm({
                     <p className="text-xs text-muted-foreground">
                       {resolvingMaps
                         ? "Resolviendo enlace…"
-                        : "En Google Maps: busca el local → Compartir → Copiar enlace. Las coordenadas se rellenan solas."}
+                        : geocoding
+                          ? "Buscando dirección…"
+                          : "En Google Maps: busca el local → Compartir → Copiar enlace. Se rellenan solos las coordenadas, la dirección, el municipio y la provincia."}
                     </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Dirección completa</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Calle, número…"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -625,6 +704,33 @@ export function RestaurantForm({
                 )}
               />
             </div>
+
+            {/* Completar la ubicación a partir de las coordenadas actuales */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                geocoding ||
+                typeof latitude !== "number" ||
+                typeof longitude !== "number"
+              }
+              onClick={() =>
+                void fillAddressFromCoords(latitude as number, longitude as number)
+              }
+            >
+              {geocoding ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  Buscando dirección…
+                </>
+              ) : (
+                <>
+                  <MapPin className="size-4" aria-hidden="true" />
+                  Rellenar dirección desde las coordenadas
+                </>
+              )}
+            </Button>
 
             <div className="h-72 overflow-hidden rounded-xl border">
               <LocationPicker
