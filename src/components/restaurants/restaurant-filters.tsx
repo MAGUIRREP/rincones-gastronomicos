@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, Heart, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/select";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
+  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -35,10 +37,17 @@ interface RestaurantFiltersProps {
 
 const ALL = "all";
 
+/** Página que muestra los resultados filtrados. */
+const RESULTS_PATH = "/restaurantes";
+
 /**
- * Barra de filtros: buscador con debounce + filtros rápidos +
- * panel lateral con filtros avanzados. El estado vive en la URL,
- * por lo que los filtros son compartibles y sobreviven a recargas.
+ * Barra de filtros: buscador + filtros rápidos + panel lateral con
+ * filtros avanzados. El estado vive en la URL, por lo que los filtros
+ * son compartibles y sobreviven a recargas.
+ *
+ * Solo el listado (/restaurantes) sabe aplicar estos filtros, así que
+ * desde cualquier otra página (por ejemplo la portada) los cambios
+ * llevan al listado con los filtros ya puestos.
  */
 export function RestaurantFilters({
   provincias,
@@ -52,6 +61,8 @@ export function RestaurantFilters({
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const isResultsPage = pathname === RESULTS_PATH;
+
   const setParams = useCallback(
     (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -63,18 +74,27 @@ export function RestaurantFilters({
         }
       }
       params.delete("page"); // cualquier cambio de filtro vuelve a página 1
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      const query = params.toString();
+      router.push(`${RESULTS_PATH}${query ? `?${query}` : ""}`, {
+        // Al venir de otra página conviene subir arriba para ver los resultados.
+        scroll: !isResultsPage,
+      });
     },
-    [router, pathname, searchParams],
+    [router, searchParams, isResultsPage],
   );
 
-  // Buscador con debounce de 400 ms.
+  /**
+   * En el listado la búsqueda se aplica sola (con retardo, mientras se
+   * escribe). Fuera del listado se espera a Enter o al botón de buscar,
+   * para no cambiar de página en medio de la escritura.
+   */
   useEffect(() => {
+    if (!isResultsPage) return;
     const current = searchParams.get("q") ?? "";
     if (search === current) return;
     const timeout = setTimeout(() => setParams({ q: search || null }), 400);
     return () => clearTimeout(timeout);
-  }, [search, searchParams, setParams]);
+  }, [search, searchParams, setParams, isResultsPage]);
 
   const comunidadFilter = searchParams.get("comunidad");
   const filteredProvincias = comunidadFilter
@@ -112,6 +132,12 @@ export function RestaurantFilters({
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                setParams({ q: search || null });
+              }
+            }}
           />
         </div>
 
@@ -149,6 +175,10 @@ export function RestaurantFilters({
             <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
               <SheetHeader>
                 <SheetTitle>Filtros avanzados</SheetTitle>
+                <SheetDescription>
+                  Cada filtro se aplica al momento. Pulsa «Ver resultados»
+                  para cerrar este panel.
+                </SheetDescription>
               </SheetHeader>
 
               <div className="space-y-5 px-4 pb-4">
@@ -289,18 +319,26 @@ export function RestaurantFilters({
                 </div>
               </div>
 
-              <SheetFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    router.push(pathname);
-                    setSearch("");
-                    setSheetOpen(false);
-                  }}
-                >
-                  <X className="size-4" aria-hidden="true" />
-                  Limpiar filtros
-                </Button>
+              <SheetFooter className="flex-row gap-2">
+                <SheetClose asChild>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      router.push(RESULTS_PATH);
+                      setSearch("");
+                    }}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                    Limpiar
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button className="flex-1">
+                    <Check className="size-4" aria-hidden="true" />
+                    Ver resultados
+                  </Button>
+                </SheetClose>
               </SheetFooter>
             </SheetContent>
           </Sheet>
