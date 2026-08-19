@@ -97,8 +97,10 @@ export function PhotoGallery({ photos, restaurantName }: PhotoGalleryProps) {
         open={selected !== null}
         onOpenChange={(open) => !open && setSelected(null)}
       >
+        {/* Visor a casi pantalla completa: hay que sobrescribir el
+            sm:max-w-lg que trae DialogContent por defecto. */}
         <DialogContent
-          className="max-w-4xl border-none bg-black/95 p-2 sm:p-4"
+          className="w-[96vw] max-w-[96vw] border-none bg-black/95 p-2 sm:max-w-[96vw] sm:p-3"
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">
@@ -106,13 +108,16 @@ export function PhotoGallery({ photos, restaurantName }: PhotoGalleryProps) {
           </DialogTitle>
           {selected !== null && (
             <div className="relative">
-              <div className="relative aspect-[4/3] w-full sm:aspect-video">
+              {/* Altura fija y object-contain: las fotos verticales
+                  aprovechan todo el alto y las horizontales todo el ancho. */}
+              <div className="relative h-[72dvh] w-full sm:h-[80dvh]">
                 <Image
                   src={getPhotoUrl(sorted[selected].storage_path)}
                   alt={`Fotografía ${selected + 1} de ${restaurantName}`}
                   fill
-                  sizes="(max-width: 1024px) 100vw, 896px"
+                  sizes="96vw"
                   className="object-contain"
+                  priority
                 />
               </div>
               <p className="mt-2 text-center text-sm text-white/70">
