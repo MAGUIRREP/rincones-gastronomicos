@@ -36,7 +36,16 @@ export default async function AppLayout({
         {children}
       </main>
       <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        Hecho con 🍴 por Álvaro y Mariano
+        Hecho con 🍴 por Álvaro y{" "}
+        {/* Huevo de pascua: el juego Cat Wars (public/cat-wars.html) */}
+        <a
+          href="/cat-wars.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-inherit no-underline"
+        >
+          Mariano
+        </a>
       </footer>
       {profile && (
         <Suspense fallback={null}>
