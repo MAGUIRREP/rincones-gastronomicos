@@ -2,16 +2,19 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Cat Wars</title>
 <style>
 :root{--neon:#ffe81f;--cyan:#22e4ff;--pink:#ff3fa4;--green:#3dff7a;--bg:#05030f}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Trebuchet MS',system-ui,sans-serif;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
-canvas#game{display:block;position:fixed;inset:0;width:100vw;height:100vh}
+/* Altura real visible: en móvil 100vh incluye la zona tapada por la barra del navegador */
+canvas#game{display:block;position:fixed;left:0;top:0;width:100%;height:100%;height:100dvh}
 
 /* ---------- Pantallas ---------- */
-.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;text-align:center;z-index:10;overflow-y:auto}
+.screen{position:fixed;left:0;top:0;width:100%;height:100%;height:100dvh;display:none;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));text-align:center;z-index:10;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.screen>:first-child{margin-top:auto}
+.screen>:last-child{margin-bottom:auto}
 .screen.show{display:flex}
 .space{background-color:#05030f;
   background-image:
@@ -129,8 +132,8 @@ h2.big{font-family:Impact,'Arial Black',sans-serif;font-size:clamp(46px,10vw,96p
 /* ---------- Botones flotantes y táctiles ---------- */
 #corner{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:20}
 #corner button{width:42px;height:42px;border-radius:50%;border:2px solid #ffffff55;background:rgba(5,3,20,.6);color:#fff;font-size:18px;cursor:pointer}
-#touch{position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-between;padding:18px;pointer-events:none;z-index:5}
-#touch button{pointer-events:auto;width:92px;height:92px;border-radius:50%;font:900 15px 'Trebuchet MS',sans-serif;color:#fff;border:4px solid #fff9;touch-action:none}
+#touch{position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-between;padding:18px 18px calc(18px + env(safe-area-inset-bottom));pointer-events:none;z-index:5}
+#touch button{pointer-events:auto;width:92px;height:92px;opacity:.8;border-radius:50%;font:900 15px 'Trebuchet MS',sans-serif;color:#fff;border:4px solid #fff9;touch-action:none}
 #tJump{background:radial-gradient(#22e4ffaa,#0a6fb0cc)}
 #tSaber{background:radial-gradient(#ff3fa4aa,#a0105acc)}
 body.playing.coarse #touch{display:flex}
@@ -153,7 +156,7 @@ body.playing.coarse #touch{display:flex}
   <button class="btn" id="btnPlay">▶ JUGAR</button>
   <div class="help">
     <kbd>Espacio</kbd>/<kbd>↑</kbd>/clic: saltar (doble salto) · <kbd>X</kbd>/clic derecho: sable láser · <kbd>P</kbd>: pausa<br>
-    Recoge los <b>12 holocrones</b> (misiones) de cada nivel y derrota al malo. El sable solo funciona contra los droides malos: ¡si atacas a alguien amable te quedarás pillado!
+    Recoge los <b>12 holocrones</b> (misiones) de cada nivel y derrota al malo: devuélvele sus disparos con el sable o golpéale cuando se acerque y ponga <b>¡GOLPEA!</b> El sable solo funciona contra los droides malos: ¡si atacas a alguien amable te quedarás pillado!
   </div>
   <div id="rotate">📱 Gira el móvil en horizontal para jugar mejor</div>
   <div class="copy">© Copyright Julia Aguirre y Papi</div>
@@ -226,14 +229,22 @@ const TAU = Math.PI * 2;
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
-  cvs.width = Math.round(innerWidth * DPR);
-  cvs.height = Math.round(innerHeight * DPR);
+  // Tamaño visible real (sin la barra del navegador del móvil)
+  const w = innerWidth, h = innerHeight;
+  if (!(w > 0 && h > 0)) return;
+  cvs.style.width = w + 'px'; cvs.style.height = h + 'px';
+  cvs.width = Math.round(w * DPR);
+  cvs.height = Math.round(h * DPR);
   SC = Math.min(cvs.height / VH, cvs.width / 700);
   VW = cvs.width / SC;
   OY = cvs.height / SC - VH;
 }
-addEventListener('resize', resize); resize();
-document.body.classList.toggle('coarse', matchMedia('(pointer:coarse)').matches);
+addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 250));
+if (window.visualViewport) visualViewport.addEventListener('resize', resize);
+resize();
+const COARSE = matchMedia('(pointer:coarse)').matches;
+document.body.classList.toggle('coarse', COARSE);
 
 /* ---------- utilidades ---------- */
 const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -810,7 +821,7 @@ function startGame(lvl, opts) {
   opts = opts || {};
   G.level = lvl;
   if (!opts.keep) { G.score = 0; G.cycle = opts.cycle || 0; G.newRecord = false; G.startLevel = lvl; }
-  G.lives = 3; G.shield = 0; G.magnet = 0; G.toasts = [];
+  G.lives = 4; G.shield = 0; G.magnet = 0; G.toasts = [];
   resetLevel();
   if (opts.skipIntro) { show(null); G.state = 'play'; document.body.classList.add('playing'); SFX.start(); toast('¡A por ello, ' + G.char.name + '!'); }
   else showIntro();
@@ -872,7 +883,7 @@ function jump() {
 function jumpRelease() { if (G.state === 'play' && !isOcean() && P.vy < -320) P.vy *= .55; }
 function saber() {
   if (G.state !== 'play' || G.freeze > 0 || P.swingCD > 0) return;
-  P.swing = 0; P.swingCD = .32; SFX.saber();
+  P.swing = 0; P.swingCD = .28; SFX.saber();
 }
 
 /* ---------- generación ---------- */
@@ -905,31 +916,32 @@ function spawnItem(type, why) {
 
 function startBoss() {
   const V = VILLAINS[G.level];
-  G.boss = { x: VW + 150, y: GROUND - 140, hp: 5 + G.level + G.cycle * 2, st: 'enter', t: 0, shootT: 2, chargeT: 5, hurtT: 0, sw: -1, cfg: V };
+  G.boss = { x: VW + 150, y: GROUND - 140, hp: 3 + G.level + G.cycle * 2, st: 'enter', t: 0, shootT: 2.5, chargeT: 3, hurtT: 0, sw: -1, cfg: V };
   G.boss.max = G.boss.hp;
   G.ents = G.ents.filter(e => e.x < VW && e.k !== 'tok');
   SFX.alarm(); toast(MASTER().name + ': ¡Ahora sí puedes luchar! Derrota a ' + V.name, '#ff6b8a');
-  toast('Devuelve sus disparos con el sable (X)', '#ffffff');
+  toast('Devuelve sus disparos con el sable o golpéale cuando se acerque', '#ffffff');
 }
 
 /* =========================================================
    UPDATE
    ========================================================= */
-const box = e => ({ x: e.x - e.w / 2 + 4, y: e.y - e.h + 4, w: e.w - 8, h: e.h - 6 });
+const box = e => ({ x: e.x - e.w / 2 + 7, y: e.y - e.h + 6, w: e.w - 14, h: e.h - 9 });
 const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 function hurt() {
   if (G.inv > 0) return;
   if (G.shield > 0) { G.shield = 0; G.inv = 1; SFX.deflect(); burst(P.x, P.y - 40, '#22e4ff', 20, 260); toast('¡El escudo te ha protegido!', '#22e4ff'); return; }
-  G.lives--; G.inv = 1.6; G.shake = 14; SFX.hurt(); burst(P.x, P.y - 40, '#ff3f6e', 18, 260, 300);
+  G.lives--; G.inv = 2.2; G.shake = 14; SFX.hurt(); burst(P.x, P.y - 40, '#ff3f6e', 18, 260, 300);
   if (G.lives <= 0) gameOver();
 }
 
 function update(dt) {
   G.t += dt; G.levelTime += dt;
-  P.x = Math.max(120, VW * .18);
+  // En táctil el botón SALTAR ocupa la esquina: el gato corre a su derecha
+  P.x = COARSE ? Math.max(130 / (SC / DPR) + 45, VW * .2) : Math.max(120, VW * .18);
   const ocean = isOcean();
-  const base = 330 + G.level * 22 + G.cycle * 45 + Math.min(G.levelTime * 4, 130);
+  const base = 290 + G.level * 18 + G.cycle * 40 + Math.min(G.levelTime * 3, 90);
   const sp = G.speed = G.boss ? base * .55 : base;
   G.bgX += sp * dt;
   G.score += sp * dt * .05 * (1 + G.cycle * .5);
@@ -946,20 +958,20 @@ function update(dt) {
   if (P.y >= GROUND) { P.y = GROUND; P.vy = 0; P.onGround = true; P.jumps = 0; }
   if (ocean && P.y < 90) { P.y = 90; P.vy = Math.max(P.vy, 0); }
   P.swingCD -= dt;
-  if (P.swing >= 0) { P.swing += dt / .24; if (P.swing >= 1) P.swing = -1; }
-  const saberOn = P.swing >= 0 && P.swing < .9;
-  const pb = { x: P.x - 15, y: P.y - 66, w: 32, h: 62 };
-  const sb = { x: P.x - 5, y: P.y - 118, w: 100, h: 122 };
+  if (P.swing >= 0) { P.swing += dt / .3; if (P.swing >= 1) P.swing = -1; }
+  const saberOn = P.swing >= 0 && P.swing < .95;
+  const pb = { x: P.x - 13, y: P.y - 62, w: 28, h: 58 };
+  const sb = { x: P.x - 10, y: P.y - 130, w: 125, h: 140 };
 
   // generación
   if (!G.boss && G.endT <= 0) {
     G.spawnD -= sp * dt;
-    if (G.spawnD <= 0) { spawnHazard(); G.spawnD = sp * rand(.9, 1.55) * Math.max(.7, 1 - G.level * .04 - G.cycle * .08); }
+    if (G.spawnD <= 0) { spawnHazard(); G.spawnD = sp * rand(1.05, 1.75) * Math.max(.7, 1 - G.level * .04 - G.cycle * .08); }
     G.tokenD -= sp * dt;
     if (G.tokenD <= 0) { const onScreen = G.ents.filter(e => e.k === 'tok').length; if (G.tokens + onScreen < 12) spawnToken(); G.tokenD = sp * rand(2.2, 2.9); }
     G.itemCD -= dt;
     if (G.itemCD <= 0) {
-      if (G.lives <= 1) spawnItem('vida', 'te envío una vida extra'), G.itemCD = 14;
+      if (G.lives <= 2) spawnItem('vida', 'te envío una vida extra'), G.itemCD = 12;
       else if (Math.random() < .5) spawnItem('escudo', 'toma un escudo de la Fuerza'), G.itemCD = rand(16, 22);
       else spawnItem('fuerza', 'usa la Fuerza para atraer holocrones'), G.itemCD = rand(16, 22);
     }
@@ -1052,24 +1064,31 @@ function updateBoss(dt, pb, sb, saberOn) {
     b.x += (baseX - b.x) * Math.min(1, dt * 3); b.y += (targetY - b.y) * Math.min(1, dt * 3);
     b.shootT -= dt;
     if (b.shootT <= 0) {
-      const sx = b.x - 40, sy = b.y - 72, ty = P.y - 40, spd = 380 + G.level * 30 + G.cycle * 40;
+      const sx = b.x - 40, sy = b.y - 72, ty = P.y - 40, spd = 290 + G.level * 22 + G.cycle * 35;
       const tt = Math.abs(sx - P.x) / spd;
       G.ents.push({ k: 'bolt', x: sx, y: sy, w: 30, h: 10, vx: -spd, vy: clamp((ty - sy) / tt, -260, 260) });
       b.sw = 0; SFX.shoot();
-      b.shootT = Math.max(.75, 1.7 - G.level * .14 - G.cycle * .1);
+      b.shootT = Math.max(1.1, 2.1 - G.level * .12 - G.cycle * .1);
     }
     b.chargeT -= dt;
-    if (b.chargeT <= 0) { b.st = 'charge'; b.ty = clamp(P.y, GROUND - 160, GROUND); toast('¡Cuidado, ataca! Usa el sable', '#ff6b8a'); }
+    if (b.chargeT <= 0) { b.st = 'charge'; toast('¡Viene hacia ti! Cuando se pare, golpéale con el sable', '#ffe81f'); }
   } else if (b.st === 'charge') {
-    b.x -= 560 * dt; b.y += (b.ty - b.y) * Math.min(1, dt * 4); b.sw = b.sw < 0 ? 0 : b.sw;
-    if (b.x < P.x - 60) { b.st = 'return'; }
+    // Se acerca y se para justo delante del jugador, al alcance del sable
+    const tx = P.x + 105;
+    b.x += (tx - b.x) * Math.min(1, dt * 3.2); b.y += (GROUND - b.y) * Math.min(1, dt * 4);
+    if (Math.abs(b.x - tx) < 10) { b.st = 'open'; b.openT = 2; }
+  } else if (b.st === 'open') {
+    // Momento de golpearle: se queda quieto y no hace daño al tocarte
+    b.x = P.x + 105; b.y += (GROUND - b.y) * Math.min(1, dt * 4); b.openT -= dt;
+    if (b.openT <= 0) b.st = 'return';
   } else if (b.st === 'return') {
     b.x += 420 * dt; b.y += (targetY - b.y) * Math.min(1, dt * 3);
-    if (b.x >= baseX) { b.st = 'fight'; b.chargeT = rand(4, 6.5); }
+    if (b.x >= baseX) { b.st = 'fight'; b.chargeT = rand(3, 4.5); }
   }
-  const bb = bossBox();
-  if (saberOn && hit(sb, bb) && b.st === 'charge') { damageBoss(); if (G.boss) { b.st = 'return'; burst(b.x - 30, b.y - 60, G.char.saber, 14, 260); } return; }
-  if (hit(pb, bb)) { hurt(); if (G.boss && b.st === 'charge') b.st = 'return'; }
+  // El malo solo hace daño con sus disparos; se le golpea con el sable cuando se acerca
+  if (saberOn && (b.st === 'open' || b.st === 'charge') && hit(sb, bossBox())) {
+    damageBoss(); if (G.boss) { b.st = 'return'; burst(b.x - 30, b.y - 60, G.char.saber, 14, 260); }
+  }
 }
 
 /* =========================================================
@@ -1109,6 +1128,12 @@ function render() {
     if (b.hurtT > 0 && Math.floor(t * 30) % 2) g.globalAlpha = .4;
     drawCat(g, b.cfg, b.x, b.y, 1.75, t, { facing: -1, run: false, swing: b.sw, saberOn: true });
     g.restore();
+    if (b.st === 'open' || b.st === 'charge') {
+      const s = 1 + Math.sin(t * 12) * .08;
+      g.save(); g.translate(b.x, b.y - 165); g.scale(s, s);
+      g.font = '900 24px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.lineWidth = 5; g.strokeStyle = '#000';
+      g.strokeText('¡GOLPEA!', 0, 0); g.fillStyle = '#ffe81f'; g.fillText('¡GOLPEA!', 0, 0); g.restore();
+    }
   }
 
   // jugador
