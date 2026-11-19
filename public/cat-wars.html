@@ -140,6 +140,35 @@ body.playing.coarse #touch{display:flex}
 .copy{margin-top:6px;font-size:13px;font-weight:bold;letter-spacing:.08em;color:#ffe81fcc;text-shadow:0 0 10px #ffe81f66}
 #rotate{display:none;font-size:13px;color:#ffb3d9}
 @media (orientation:portrait) and (pointer:coarse){#rotate{display:block}}
+
+/* ---------- Ataque especial, sables y personajes bloqueados ---------- */
+.rgrp{display:flex;gap:12px;align-items:flex-end}
+#tSpecial{display:none;width:74px!important;height:74px!important;font-size:11px!important;line-height:1.1;background:radial-gradient(#ffe81faa,#b8860bcc)}
+body.hasSpecial #tSpecial{display:block}
+#tSpecial.ready{animation:pulse .45s infinite alternate;box-shadow:0 0 22px #ffe81f}
+.char.locked{cursor:not-allowed}
+.char.locked b{color:#8a86a8}
+.char small{display:block;line-height:1.3}
+.sabers{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;font-weight:bold;color:#9fe8ff;font-size:13px}
+.sab{width:48px;height:16px;border-radius:8px;border:2px solid #ffffff88;cursor:pointer;box-shadow:0 0 12px #ffffff44;font-size:10px;line-height:10px;color:#fff}
+.sab.sel{outline:3px solid var(--neon);outline-offset:3px}
+.sab.locked{cursor:not-allowed;box-shadow:none}
+
+/* ---------- Mi ciudad ---------- */
+#city{padding:0;gap:0;justify-content:space-between;pointer-events:none;background:none}
+#city>*{pointer-events:auto;margin:0!important}
+#cityTop{width:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 112px 8px 10px;background:rgba(5,3,20,.72)}
+#cityTop b{color:var(--neon);font-size:18px}
+#cityTop .btn.ghost{padding:8px 16px;font-size:14px}
+.cbtn{width:38px;height:34px;border-radius:10px;border:2px solid #ffffff55;background:#1d1550;color:#fff;font-size:16px;cursor:pointer}
+.cityhint{font-size:12px;color:#cfd6ff;flex:1;min-width:140px;text-align:left}
+#cityBar{width:100%;display:flex;gap:6px;overflow-x:auto;padding:8px 8px calc(8px + env(safe-area-inset-bottom));background:rgba(5,3,20,.82)}
+.tool{flex:0 0 auto;min-width:60px;padding:5px 4px;border-radius:10px;border:2px solid #ffffff33;background:#1d1550;color:#fff;font:bold 11px 'Trebuchet MS',sans-serif;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.tool i{display:block;width:28px;height:28px;border-radius:5px;border:1px solid #0006;font-style:normal;font-size:18px;line-height:28px;text-align:center}
+.tool small{font-size:9px;color:#ffb3d9}
+.tool.sel{border-color:var(--neon);box-shadow:0 0 12px #ffe81f88}
+.tool.locked{opacity:.45;cursor:not-allowed}
+body.inCity #btnPause{display:none}
 </style>
 </head>
 <body>
@@ -153,10 +182,10 @@ body.playing.coarse #touch{display:flex}
   <div class="best">🏆 Mejor puntuación: <span id="bestMenu">0</span></div>
   <h3>Elige escenario (desbloquea completando niveles)</h3>
   <div class="levels" id="levels"></div>
-  <button class="btn" id="btnPlay">▶ JUGAR</button>
+  <div class="row"><button class="btn" id="btnPlay">▶ JUGAR</button><button class="btn alt" id="btnCity">🏠 MI CIUDAD</button></div>
   <div class="help">
-    <kbd>Espacio</kbd>/<kbd>↑</kbd>/clic: saltar (doble salto) · <kbd>X</kbd>/clic derecho: sable láser · <kbd>P</kbd>: pausa<br>
-    Recoge los <b>12 holocrones</b> (misiones) de cada nivel y derrota al malo: devuélvele sus disparos con el sable o golpéale cuando se acerque y ponga <b>¡GOLPEA!</b> El sable solo funciona contra los droides malos: ¡si atacas a alguien amable te quedarás pillado!
+    <kbd>Espacio</kbd>/<kbd>↑</kbd>/clic: saltar (doble salto) · <kbd>X</kbd>/clic derecho: sable láser · <kbd>C</kbd>: ataque especial · <kbd>P</kbd>: pausa<br>
+    Cada escenario tiene <b>5 misiones</b>: un sable nuevo, materiales para tu ciudad, rescatar a un padawan de su celda (¡así consigues más personajes!) y derrotar al malo. El sable solo funciona contra los droides malos: ¡si atacas a alguien amable te quedarás pillado!
   </div>
   <div id="rotate">📱 Gira el móvil en horizontal para jugar mejor</div>
   <div class="copy">© Copyright Julia Aguirre y Papi</div>
@@ -166,6 +195,7 @@ body.playing.coarse #touch{display:flex}
 <div id="select" class="screen space">
   <h3 id="selTitle">Personaje principal · elige el que quieras</h3>
   <div class="chars" id="chars"></div>
+  <div class="sabers" id="sabers"></div>
   <div class="row">
     <button class="btn ghost" id="btnBack">← Volver</button>
     <button class="btn" id="btnStart">¡A LA MISIÓN!</button>
@@ -198,7 +228,9 @@ body.playing.coarse #touch{display:flex}
     <button class="btn alt" id="btnChange">Cambiar gato</button>
     <button class="btn ghost" id="btnMenu">Menú</button>
   </div>
-  <div class="help"><kbd>Enter</kbd> o <kbd>Espacio</kbd> para reiniciar al instante</div>
+  <div class="help"><kbd>Enter</kbd> o <kbd>Espacio</kbd> para reintentar este nivel al instante</div>
+  <h3>O empieza en un escenario desbloqueado</h3>
+  <div class="levels" id="overLevels"></div>
 </div>
 
 <!-- VICTORIA -->
@@ -214,7 +246,19 @@ body.playing.coarse #touch{display:flex}
 </div>
 
 <div id="corner"><button id="btnMute" title="Sonido">🔊</button><button id="btnPause" title="Pausa">⏸</button></div>
-<div id="touch"><button id="tJump">SALTAR</button><button id="tSaber">SABLE</button></div>
+<div id="touch"><button id="tJump">SALTAR</button><div class="rgrp"><button id="tSpecial">⭐<br>ESPECIAL</button><button id="tSaber">SABLE</button></div></div>
+
+<!-- MI CIUDAD -->
+<div id="city" class="screen">
+  <div id="cityTop">
+    <button class="btn ghost" id="cityExit">← Menú</button>
+    <b>🏠 Mi ciudad</b>
+    <button class="cbtn" id="cityLeft" title="Mover a la izquierda">◀</button><button class="cbtn" id="cityRight" title="Mover a la derecha">▶</button>
+    <span class="cityhint">Toca o arrastra para poner bloques · gana más en las misiones</span>
+    <button class="cbtn" id="cityReset" title="Ciudad nueva">↺</button>
+  </div>
+  <div id="cityBar"></div>
+</div>
 
 <script>
 'use strict';
@@ -312,22 +356,34 @@ const SFX = {
   boom: () => { AU.noise(.9, .35, 300, 'lowpass'); AU.tone(120, .8, 'sawtooth', .12, 30); },
   over: () => [392, 330, 262, 196].forEach((f, i) => AU.tone(f, .3, 'square', .11, null, i * .22)),
   victory: () => [523, 523, 523, 698, 1046, 932, 880, 784, 1397, 1046].forEach((f, i) => AU.tone(f, i === 9 ? .6 : .18, 'square', .09, null, i * .16)),
-  click: () => AU.tone(660, .06, 'square', .07)
+  click: () => AU.tone(660, .06, 'square', .07),
+  reward: () => [659, 784, 988, 1319, 1568].forEach((f, i) => AU.tone(f, .22, 'triangle', .12, null, i * .09)),
+  cellHit: () => { AU.tone(320, .1, 'square', .1, 180); AU.noise(.12, .15, 3500, 'highpass'); },
+  rescue: () => [523, 659, 784, 659, 784, 1046].forEach((f, i) => AU.tone(f, .18, 'square', .09, null, i * .11)),
+  holo: () => [880, 1175, 1568, 2093].forEach((f, i) => AU.tone(f, .16, 'sine', .1, null, i * .06)),
+  fuerza: () => { AU.tone(90, 1, 'sine', .3, 300); AU.noise(.8, .15, 400, 'lowpass'); },
+  halcon: () => { AU.tone(120, 1.4, 'sawtooth', .1, 60); AU.noise(1.2, .12, 700); },
+  laser: () => AU.tone(1400, .08, 'square', .05, 400),
+  rayos: () => { AU.noise(.7, .3, 5000, 'highpass'); AU.tone(60, .6, 'sawtooth', .15, 40); },
+  rugido: () => { AU.tone(140, .9, 'sawtooth', .25, 70); AU.tone(95, .9, 'square', .12, 50); AU.noise(.8, .2, 300, 'lowpass'); },
+  slash: () => { AU.tone(200, .25, 'sawtooth', .14, 90); AU.noise(.2, .12, 1200); },
+  place: () => AU.tone(420, .05, 'square', .06, 300),
+  erase: () => AU.noise(.08, .12, 1800)
 };
 
 /* =========================================================
    DATOS: personajes, maestros, villanos, niveles
    ========================================================= */
 const CHARS = [
-  { id: 'leia', name: 'Cat Leia', desc: 'Princesa valiente', fur: '#f3e0c6', fur2: '#c07a3c', patches: true, eye: '#2b1a10', body: '#ffffff', legs: '#ececf2', saber: '#38b6ff', acc: 'buns' },
-  { id: 'yoda', name: 'Kitty Yoda', desc: 'Pequeño y sabio', fur: '#9ba3ad', fur2: '#6d747d', eye: '#c8d84a', body: '#7a5532', legs: '#6b4a2a', hoodc: '#6a4a2c', saber: '#4dff4d', acc: 'yoda' },
+  { id: 'leia', name: 'Cat Leia', desc: 'Princesa valiente', fur: '#f3e0c6', fur2: '#c07a3c', patches: true, eye: '#2b1a10', body: '#ffffff', legs: '#ececf2', saber: '#38b6ff', acc: 'buns', special: { id: 'holo', name: 'Leia digital', desc: 'Una copia holográfica suya ataca a los droides' } },
+  { id: 'yoda', name: 'Kitty Yoda', desc: 'Pequeño y sabio', fur: '#9ba3ad', fur2: '#6d747d', eye: '#c8d84a', body: '#7a5532', legs: '#6b4a2a', hoodc: '#6a4a2c', saber: '#4dff4d', acc: 'yoda', special: { id: 'fuerza', name: 'La Fuerza', desc: 'Una onda que barre todo lo que hay en pantalla' } },
   { id: 'finn', name: 'Finn Whisker', desc: 'Aventurero', fur: '#b98a5a', fur2: '#6e4a2a', stripes: true, eye: '#7a9a3a', body: '#8a5a3a', legs: '#2a4a8a', saber: '#3a7bff', acc: 'vest' },
-  { id: 'poe', name: 'Poe Paws', desc: 'Piloto as', fur: '#f0a24e', fur2: '#c46a20', stripes: true, eye: '#9ac84a', body: '#efe6d6', legs: '#7d6a52', saber: '#ff8a1f', acc: 'scarf' },
+  { id: 'poe', name: 'Poe Paws', desc: 'Piloto as', fur: '#f0a24e', fur2: '#c46a20', stripes: true, eye: '#9ac84a', body: '#efe6d6', legs: '#7d6a52', saber: '#ff8a1f', acc: 'scarf', special: { id: 'halcon', name: 'Disparo del Halcón', desc: 'Su nave pasa disparando a los malos' } },
   { id: 'vader', name: 'Cat Vader', desc: 'Respira fuerte', fur: '#1c1c22', fur2: '#000000', eye: '#ffcc33', body: '#121216', legs: '#121216', cape: '#060608', saber: '#ff2a2a', acc: 'vader' },
   { id: 'rey', name: 'Rey da Kitten', desc: 'Chatarrera', fur: '#c99560', fur2: '#8a5a2a', stripes: true, eye: '#6fbf4a', body: '#eadbbd', legs: '#d9c49a', saber: '#ffd84a', acc: 'rey' },
   { id: 'luke', name: 'Luke Catwalker', desc: 'Orejas dobladas', fur: '#a9aeb6', fur2: '#80858d', eye: '#e0a020', body: '#f4f1ea', legs: '#d8d2c4', saber: '#4fc3ff', acc: 'luke' },
-  { id: 'palpa', name: 'Palpatine Furryface', desc: 'Capucha oscura', fur: '#a07a55', fur2: '#5a3a20', stripes: true, eye: '#ffdd00', body: '#1d1826', legs: '#15121c', hoodc: '#15121c', cape: '#0f0c16', saber: '#ff2266', acc: 'hood' },
-  { id: 'chewie', name: 'Meowbacca', desc: 'Muy peludo', fur: '#4b3426', fur2: '#2a1a10', eye: '#e0a030', body: '#4b3426', legs: '#3d2a1e', saber: '#b44dff', acc: 'chewie' }
+  { id: 'palpa', name: 'Palpatine Furryface', desc: 'Capucha oscura', fur: '#a07a55', fur2: '#5a3a20', stripes: true, eye: '#ffdd00', body: '#1d1826', legs: '#15121c', hoodc: '#15121c', cape: '#0f0c16', saber: '#ff2266', acc: 'hood', special: { id: 'rayos', name: 'Rayos', desc: 'Rayos que saltan de malo en malo' } },
+  { id: 'chewie', name: 'Meowbacca', desc: 'Muy peludo', fur: '#4b3426', fur2: '#2a1a10', eye: '#e0a030', body: '#4b3426', legs: '#3d2a1e', saber: '#b44dff', acc: 'chewie', special: { id: 'rugido', name: 'Rugido', desc: 'Un rugido que asusta al malo y lo deja quieto' } }
 ];
 const MASTERS = [
   { name: 'Maestro Michi-Wan', fur: '#d8d8d8', fur2: '#aaaaaa', eye: '#5ab0ff', body: '#8a6440', legs: '#6a4a30', hoodc: '#6a4a30', acc: 'master' },
@@ -351,20 +407,74 @@ const NPCS = {
 const LEVELS = [
   { key: 'city', name: 'Ciudad', droid: '#d9c6a0', npcs: ['waiter', 'seller', 'waiter'], creatureSay: '¡Hola!',
     intro: 'Bien hecho. Vuelve a la <b>Ciudad</b>: aquí puedes construir tu casa. Salta las cajas y esquiva los speeders.',
-    missions: ['Llevar el café del camarero', 'Comprar ropa de padawan', 'Poner los cimientos de tu casa', 'Levantar las paredes de tu casa', 'Poner el tejado de tu casa', 'Ayudar al vendedor de ropa', 'Encontrar un droide perdido', 'Entregar un mensaje secreto', 'Patrullar la plaza', 'Reparar una fuente', 'Rescatar a un gatito', 'Recuperar el holocrón robado'] },
+    rescue: 'leia', blocks: ['ladrillo', 'ventana'], saberReward: { name: 'verde', c: '#3dff7a' } },
   { key: 'desert', name: 'Desierto', droid: '#c9844a', npcs: ['creature', 'creature', 'seller'], creatureSay: '¡Bienvenido!',
     intro: '¡Nivel 2: el <b>Desierto</b>! Aquí no tienes casa: tendrás que alquilar una o vivir en una cueva. Cuidado con las rocas y los buitres.',
-    missions: ['Alquilar una cueva', 'Encontrar agua', 'Arreglar un vaporizador', 'Seguir huellas en la arena', 'Ayudar a una criatura del desierto', 'Cruzar las dunas', 'Buscar piezas de nave', 'Escapar de una tormenta', 'Entregar provisiones', 'Explorar una cueva', 'Esquivar a los buitres', 'Recuperar el mapa perdido'] },
+    rescue: 'poe', blocks: ['arena', 'cactus'], saberReward: { name: 'morado', c: '#b44dff' } },
   { key: 'ocean', name: 'Océano', droid: '#ffd23a', npcs: ['creature', 'creature', 'waiter'], creatureSay: '¡Blub blub!',
     intro: '¡Nivel 3: el <b>Océano</b>! Bajo el agua no saltas: <b>¡nadas!</b> Pulsa varias veces para subir. Ojo con las medusas.',
-    missions: ['Aprender a bucear', 'Salvar a un pez atrapado', 'Limpiar el coral', 'Explorar un barco hundido', 'Seguir a las tortugas', 'Encontrar una perla', 'Hablar con el pulpo sabio', 'Reparar la cúpula submarina', 'Escapar de las medusas', 'Mapear la cueva azul', 'Rescatar un submarino', 'Recuperar el cristal kyber'] },
+    rescue: 'chewie', blocks: ['coral', 'agua'], saberReward: { name: 'blanco', c: '#ffffff' } },
   { key: 'glacier', name: 'Glaciar', droid: '#f2f6ff', npcs: ['creature', 'creature', 'seller'], creatureSay: '¡Brrr, hola!',
     intro: '¡Nivel 4: el <b>Glaciar</b>! Hace mucho frío. Salta los picos de hielo y esquiva las bolas de nieve.',
-    missions: ['Construir un iglú', 'Encender una hoguera', 'Cruzar el puente de hielo', 'Rescatar a una criatura de nieve', 'Encontrar ropa de abrigo', 'Escalar el glaciar', 'Buscar la cueva de hielo', 'Patinar sobre el lago', 'Arreglar la antena', 'Seguir la aurora', 'Evitar la avalancha', 'Recuperar el holocrón helado'] },
+    rescue: 'yoda', blocks: ['hielo', 'nieve'], saberReward: { name: 'naranja', c: '#ff8a1f' } },
   { key: 'forest', name: 'Bosque', droid: '#7a8a5a', npcs: ['creature', 'creature', 'creature'], creatureSay: '¡Yub yub!',
-    intro: '¡Último nivel: el <b>Bosque</b>! Las criaturas peludas son tus amigas. Supera estas 12 misiones y te convertirás en <b>Jedi</b>.',
-    missions: ['Subir a la casa del árbol', 'Cruzar el puente colgante', 'Ayudar a las criaturas peludas', 'Recoger bayas', 'Encontrar el árbol sagrado', 'Hacer amigos en la aldea', 'Construir una lanza', 'Seguir el río', 'Esconderse de los droides', 'Llevar un mensaje a la aldea', 'Preparar la fiesta', 'Recuperar el último holocrón'] }
+    intro: '¡Último nivel: el <b>Bosque</b>! Las criaturas peludas son tus amigas. Supera sus 5 misiones y te convertirás en <b>Jedi</b>.',
+    rescue: 'palpa', blocks: ['madera', 'hojas'], saberReward: { name: 'arcoíris', c: 'rainbow' } }
 ];
+
+/* ---------- Bloques de la ciudad (los base siempre; el resto se ganan en las misiones 2 y 4) ---------- */
+const BLOCKS = {
+  hierba: { name: 'Hierba', c: '#6b4426', c2: '#4fc24f' },
+  tierra: { name: 'Tierra', c: '#8a5a32', c2: '#6a4224' },
+  piedra: { name: 'Piedra', c: '#9a9aa8', c2: '#70707e' },
+  pared: { name: 'Pared', c: '#f0d9b0', c2: '#c8b08a' },
+  tejado: { name: 'Tejado', c: '#e04a3a', c2: '#a82a20' },
+  puerta: { name: 'Puerta', c: '#7a4a24', c2: '#4a2a10', pass: true },
+  ladrillo: { name: 'Ladrillos', c: '#c8553d', c2: '#f0d9b0' },
+  ventana: { name: 'Ventana', c: '#9fe8ff', c2: '#f4f4f4' },
+  arena: { name: 'Arena', c: '#f0c27c', c2: '#d0a05a' },
+  cactus: { name: 'Cactus', c: '#3fae3a', c2: '#2a7a2a' },
+  coral: { name: 'Coral', c: '#ff5fa2', c2: '#c03a78' },
+  agua: { name: 'Agua', c: 'rgba(40,140,230,.55)', c2: 'rgba(160,220,255,.7)', pass: true },
+  hielo: { name: 'Hielo', c: '#9fe3ff', c2: '#e8f8ff' },
+  nieve: { name: 'Nieve', c: '#ffffff', c2: '#cfe6f6' },
+  madera: { name: 'Madera', c: '#a0703a', c2: '#6a4420' },
+  hojas: { name: 'Hojas', c: '#2e9a4a', c2: '#5fd06a' }
+};
+const BLOCK_IDS = Object.keys(BLOCKS);
+const BASE_BLOCKS = ['hierba', 'tierra', 'piedra', 'pared', 'tejado', 'puerta'];
+const START_CHARS = ['finn', 'vader', 'rey', 'luke'];
+
+/* ---------- Partida guardada: personajes, sables, bloques y ciudad ---------- */
+const SAVE = (() => {
+  let d = {};
+  try { d = JSON.parse(store.get('catwars_save', '{}')) || {}; } catch (e) { d = {}; }
+  d.unlock = Math.max(d.unlock || 0, +store.get('catwars_unlock', '0') || 0);
+  d.chars = Array.isArray(d.chars) ? d.chars : START_CHARS.slice();
+  START_CHARS.forEach(c => { if (!d.chars.includes(c)) d.chars.push(c); });
+  d.sabers = Array.isArray(d.sabers) ? d.sabers : [];
+  d.blocks = Array.isArray(d.blocks) ? d.blocks : [];
+  d.saber = d.saber || '';
+  return d;
+})();
+function persist() { store.set('catwars_save', JSON.stringify(SAVE)); }
+const hasChar = id => SAVE.chars.includes(id);
+const hasBlock = id => BASE_BLOCKS.includes(id) || SAVE.blocks.includes(id);
+const rescueLevel = id => LEVELS.findIndex(L => L.rescue === id);
+
+/* ---------- Las 5 misiones de cada escenario ---------- */
+const TOKENS_PER_MISSION = 4;
+const MISSION_TYPES = ['collect', 'collect', 'rescue', 'collect', 'boss'];
+function missionTitle(L, i) {
+  const li = LEVELS.indexOf(L);
+  switch (i) {
+    case 0: return 'Encuentra el cristal del sable ' + L.saberReward.name;
+    case 1: return 'Consigue ' + BLOCKS[L.blocks[0]].name.toLowerCase() + ' para tu ciudad';
+    case 2: return 'Rescata a ' + CHARS.find(c => c.id === L.rescue).name + ' de la celda';
+    case 3: return 'Consigue ' + BLOCKS[L.blocks[1]].name.toLowerCase() + ' para tu ciudad';
+    default: return 'Derrota a ' + VILLAINS[li].name;
+  }
+}
 
 /* =========================================================
    DIBUJO DE PERSONAJES (canvas, sin imágenes)
@@ -792,15 +902,27 @@ function drawObstacle(g, e, key, t) {
    ESTADO DEL JUEGO
    ========================================================= */
 const G = {
-  state: 'menu', level: 0, startLevel: 0, cycle: 0, score: 0, lives: 3, tokens: 0,
-  best: +store.get('catwars_best', '0') || 0, unlock: +store.get('catwars_unlock', '0') || 0,
-  char: CHARS[0], ents: [], parts: [], floats: [], toasts: [], boss: null,
+  state: 'menu', level: 0, startLevel: 0, cycle: 0, score: 0, lives: 3, tokens: 0, mi: 0,
+  best: +store.get('catwars_best', '0') || 0, unlock: SAVE.unlock,
+  char: CHARS.find(c => c.id === 'finn'), ents: [], parts: [], floats: [], toasts: [], boss: null,
   t: 0, bgX: 0, speed: 0, levelTime: 0, shake: 0, freeze: 0, inv: 0, shield: 0, magnet: 0,
-  spawnD: 0, tokenD: 0, itemCD: 0, endT: 0, newRecord: false, keepScore: false
+  spawnD: 0, tokenD: 0, itemCD: 0, endT: 0, newRecord: false, keepScore: false,
+  spe: 0, halt: false, cellSpawned: false, rescueD: 0, bossDelay: 0, banner: null,
+  ship: null, waves: [], beams: []
 };
 const P = { x: 170, y: GROUND, vy: 0, onGround: true, jumps: 0, swing: -1, swingCD: 0 };
 const LV = () => LEVELS[G.level];
 const MASTER = () => MASTERS[G.cycle % MASTERS.length];
+const curMission = () => MISSION_TYPES[G.mi] || 'boss';
+const SPECIAL_CD = 14;
+const HOLO = Object.assign({}, CHARS[0], { fur: '#9ff8ff', fur2: '#3ad0ff', body: '#c8fbff', legs: '#8feeff', eye: '#0a5a9a', saber: '#22e4ff', patches: false });
+
+// Color del sable: el original del personaje o uno ganado en las misiones
+function saberColor(t) {
+  const c = SAVE.saber && SAVE.sabers.includes(SAVE.saber) ? SAVE.saber : G.char.saber;
+  return c === 'rainbow' ? 'hsl(' + Math.floor((t * 240) % 360) + ',100%,62%)' : c;
+}
+const playerCfg = () => Object.assign({}, G.char, { saber: saberColor(G.t) });
 
 function toast(txt, col) { G.toasts.push({ txt, col: col || '#ffe81f', life: 2.6 }); if (G.toasts.length > 3) G.toasts.shift(); }
 function floatText(x, y, txt, col) { G.floats.push({ x, y, txt, col, life: 1 }); }
@@ -808,13 +930,16 @@ function burst(x, y, col, n, spd, grav) {
   for (let i = 0; i < n; i++) { const a = Math.random() * TAU, v = rand(.3, 1) * spd;
     G.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rand(.4, .9), max: .9, c: col, s: rand(2, 5), g: grav || 0 }); }
 }
+function showBanner(title, sub, icon) { G.banner = { title, sub, icon: icon || {}, life: 3.4 }; }
 function saveBest() {
   if (G.score > G.best) { G.best = Math.floor(G.score); store.set('catwars_best', G.best); }
 }
 
 function resetLevel() {
-  G.ents = []; G.parts = []; G.floats = []; G.boss = null; G.tokens = 0; G.levelTime = 0;
+  G.ents = []; G.parts = []; G.floats = []; G.boss = null; G.tokens = 0; G.levelTime = 0; G.mi = 0;
   G.spawnD = 700; G.tokenD = 450; G.itemCD = 16; G.endT = 0; G.freeze = 0; G.inv = 0;
+  G.halt = false; G.cellSpawned = false; G.rescueD = 0; G.bossDelay = 0; G.banner = null;
+  G.ship = null; G.waves = []; G.beams = []; G.spe = .4;
   P.y = GROUND; P.vy = 0; P.onGround = true; P.jumps = 0; P.swing = -1; P.swingCD = 0;
 }
 function startGame(lvl, opts) {
@@ -822,20 +947,26 @@ function startGame(lvl, opts) {
   G.level = lvl;
   if (!opts.keep) { G.score = 0; G.cycle = opts.cycle || 0; G.newRecord = false; G.startLevel = lvl; }
   G.lives = 4; G.shield = 0; G.magnet = 0; G.toasts = [];
+  document.body.classList.toggle('hasSpecial', !!G.char.special);
   resetLevel();
-  if (opts.skipIntro) { show(null); G.state = 'play'; document.body.classList.add('playing'); SFX.start(); toast('¡A por ello, ' + G.char.name + '!'); }
-  else showIntro();
+  if (opts.skipIntro) {
+    show(null); G.state = 'play'; document.body.classList.add('playing'); SFX.start();
+    toast('Misión 1/5: ' + missionTitle(LV(), 0), '#3dff7a');
+  } else showIntro();
 }
 function showIntro() {
   G.state = 'intro'; document.body.classList.remove('playing');
-  const L = LV(), M = MASTER();
+  const L = LV(), M = MASTER(), s = G.char.special;
   $('introLevel').textContent = 'Nivel ' + (G.level + 1) + ' · ' + L.name + (G.cycle ? ' · Padawan nº ' + (G.cycle + 1) : '');
   let txt;
-  if (G.level === G.startLevel && G.levelTime === 0 && G.tokens === 0 && G.score < 1) {
-    txt = '¡Hola, <b>' + G.char.name + '</b>! Soy <b>' + M.name + '</b> y voy a entrenarte. Estás en la <b>' + L.name + '</b> y te pondré <b>12 misiones</b>: recoge los 12 holocrones. ' +
-      'Salta con <b>ESPACIO</b> (doble salto) y usa el sable con <b>X</b>, pero solo contra los droides malos: si atacas a alguien amable te quedarás pillado. Cuando lo necesites, yo te enviaré objetos.';
+  if (G.level === G.startLevel && G.levelTime === 0 && G.score < 1) {
+    txt = '¡Hola, <b>' + G.char.name + '</b>! Soy <b>' + M.name + '</b> y voy a entrenarte. En cada escenario tendrás <b>5 misiones</b>: ' +
+      'un sable nuevo, materiales para tu ciudad, rescatar a un padawan de una celda y derrotar al malo. ' +
+      'Salta con <b>ESPACIO</b> (doble salto) y usa el sable con <b>X</b>, solo contra los droides malos: si atacas a alguien amable te quedarás pillado.';
+    if (s) txt += ' Tu ataque especial es <b>' + s.name + '</b>: pulsa <b>C</b> cuando su barra esté llena.';
     if (L.key === 'ocean') txt += ' Aquí bajo el agua <b>nadas</b>: pulsa varias veces para subir.';
   } else txt = L.intro;
+  txt += '<br><br>🎯 <b>Misión 1/5:</b> ' + missionTitle(L, 0) + '.';
   $('introText').innerHTML = txt;
   paintPortrait($('masterCv'), M, 2.4);
   show('intro');
@@ -853,10 +984,11 @@ function gameOver() {
   const prev = G.best; saveBest();
   $('overScore').textContent = fmt(G.score); $('overBest').textContent = fmt(G.best);
   $('newRec').innerHTML = G.score > prev && G.score > 0 ? '<span class="badge">¡NUEVO RÉCORD!</span>' : '';
+  buildLevels($('overLevels'), true);
   SFX.over(); setTimeout(() => { if (G.state === 'over') show('over'); }, 650);
 }
 function levelComplete() {
-  G.unlock = Math.max(G.unlock, Math.min(G.level + 1, 4)); store.set('catwars_unlock', G.unlock);
+  SAVE.unlock = G.unlock = Math.max(G.unlock, Math.min(G.level + 1, 4)); persist();
   saveBest();
   if (G.level < LEVELS.length - 1) { G.level++; resetLevel(); SFX.level(); showIntro(); }
   else victory();
@@ -864,14 +996,50 @@ function levelComplete() {
 function victory() {
   G.state = 'victory'; document.body.classList.remove('playing'); saveBest();
   const M = MASTER();
-  $('vicText').innerHTML = '¡Enhorabuena, <b>' + G.char.name + '</b>! Has completado las 60 misiones de los 5 escenarios. Yo, <b>' + M.name + '</b>, te nombro <b>Jedi</b>. Si quieres seguir jugando, serás un padawan diferente, con otro maestro y misiones más difíciles.';
+  $('vicText').innerHTML = '¡Enhorabuena, <b>' + G.char.name + '</b>! Has completado las 25 misiones de los 5 escenarios. Yo, <b>' + M.name + '</b>, te nombro <b>Jedi</b>. Si quieres seguir jugando, serás un padawan diferente, con otro maestro y misiones más difíciles.';
   $('vicScore').textContent = fmt(G.score); $('vicBest').textContent = fmt(G.best);
   paintPortrait($('masterCv2'), M, 2.4);
   SFX.victory(); show('victory');
 }
 
+/* ---------- misiones ---------- */
+function completeMission() {
+  const L = LV(), m = G.mi;
+  const pts = 300 * (G.level + 1) * (1 + G.cycle); G.score += pts;
+  if (m === 0) {
+    const r = L.saberReward, isNew = !SAVE.sabers.includes(r.c);
+    if (isNew) { SAVE.sabers.push(r.c); SAVE.saber = r.c; persist(); }
+    showBanner('¡Sable ' + r.name + '!', isNew ? 'Ya lo llevas puesto · cámbialo al elegir personaje' : 'Ya lo tenías: +' + fmt(pts) + ' puntos', { saber: r.c });
+  } else if (m === 1 || m === 3) {
+    const id = L.blocks[m === 1 ? 0 : 1], isNew = !SAVE.blocks.includes(id);
+    if (isNew) { SAVE.blocks.push(id); persist(); }
+    showBanner('¡' + BLOCKS[id].name + ' para tu ciudad!', isNew ? 'Úsalos en 🏠 Mi ciudad, desde el menú' : 'Ya los tenías: +' + fmt(pts) + ' puntos', { block: id });
+  }
+  SFX.reward();
+  G.mi++; G.tokens = 0; G.tokenD = 350;
+  if (curMission() !== 'collect') G.ents = G.ents.filter(e => e.k !== 'tok');
+  if (G.mi === 2) G.rescueD = 650;
+  if (G.mi === 4) G.bossDelay = 2.8;
+  toast('Misión ' + (G.mi + 1) + '/5: ' + missionTitle(L, G.mi), '#3dff7a');
+}
+function spawnCell() {
+  G.ents.push({ k: 'cell', x: VW + 90, y: GROUND, w: 92, h: 118, hp: 3, hurtT: 0, who: LV().rescue });
+  G.cellSpawned = true;
+  toast('¡Mira! Hay un padawan encerrado', '#ffe81f');
+}
+function freePadawan(e) {
+  const c = CHARS.find(x => x.id === e.who), isNew = !hasChar(c.id);
+  if (isNew) { SAVE.chars.push(c.id); persist(); } else G.score += 500;
+  G.ents.push({ k: 'freed', x: e.x, y: GROUND, w: 30, h: 70, cfg: c, life: 3.5 });
+  SFX.rescue(); burst(e.x, e.y - 60, '#ffe81f', 40, 320, 200); G.halt = false;
+  showBanner(isNew ? '¡Has rescatado a ' + c.name + '!' : '¡Has rescatado otra vez a ' + c.name + '!',
+    isNew ? 'Ya puedes jugar con ' + c.name + (c.special ? ' · Especial: ' + c.special.name : '') : '+500 puntos', { char: c });
+  completeMission();
+}
+
 /* ---------- acciones del jugador ---------- */
 const isOcean = () => LV().key === 'ocean';
+const isEnemy = e => e.k === 'droid' || e.k === 'drone';
 function jump() {
   if (G.state !== 'play' || G.freeze > 0) return;
   if (isOcean()) { P.vy = -430; P.onGround = false; SFX.swim(); burst(P.x - 10, P.y - 40, 'rgba(255,255,255,.8)', 4, 60, -80); return; }
@@ -884,6 +1052,42 @@ function jumpRelease() { if (G.state === 'play' && !isOcean() && P.vy < -320) P.
 function saber() {
   if (G.state !== 'play' || G.freeze > 0 || P.swingCD > 0) return;
   P.swing = 0; P.swingCD = .28; SFX.saber();
+}
+function killEnt(e, col) {
+  if (e.dead) return; e.dead = true;
+  if (isEnemy(e)) { const pts = 50 * (1 + G.cycle); G.score += pts; floatText(e.x, e.y - e.h, '+' + pts, '#ffb02a'); }
+  burst(e.x, e.y - e.h / 2, col || '#ffb02a', 18, 280, 300);
+}
+function zigzag(x1, y1, x2, y2, col) {
+  const pts = [[x1, y1]], n = 8;
+  for (let i = 1; i < n; i++) { const k = i / n; pts.push([x1 + (x2 - x1) * k + rand(-14, 14), y1 + (y2 - y1) * k + rand(-18, 18)]); }
+  pts.push([x2, y2]); return { pts, col, life: .55, max: .55, w: 4 };
+}
+function special() {
+  if (G.state !== 'play' || G.freeze > 0) return;
+  const s = G.char.special; if (!s || G.spe < 1) return;
+  G.spe = 0;
+  const hx = P.x + 14, hy = P.y - 36;
+  if (s.id === 'holo') {
+    G.ents.push({ k: 'holo', x: P.x, y: GROUND, w: 30, h: 70, life: 8, cd: 0, sw: -1 });
+    SFX.holo(); toast('¡Leia digital al ataque!', '#7ff6ff');
+  } else if (s.id === 'fuerza') {
+    G.waves.push({ x: hx, y: hy, r: 10, sp: 1100, col: '#8dff6a', boss: true });
+    SFX.fuerza(); G.shake = 10; toast('¡Que la Fuerza te acompañe!', '#8dff6a');
+  } else if (s.id === 'halcon') {
+    G.ship = { x: -170, y: 115, cd: .2, bossHits: 0 };
+    SFX.halcon(); toast('¡Llega el Halcón!', '#ffd84a');
+  } else if (s.id === 'rayos') {
+    const targets = G.ents.filter(e => (isEnemy(e) || e.k === 'obs') && !e.dead && e.x > P.x - 40 && e.x < VW + 20).sort((a, b) => a.x - b.x).slice(0, 7);
+    let px = hx, py = hy;
+    targets.forEach(e => { const tx = e.x, ty = e.y - e.h / 2; G.beams.push(zigzag(px, py, tx, ty, '#c8b8ff')); killEnt(e, '#d8ccff'); px = tx; py = ty; });
+    if (G.boss) { const b = G.boss; G.beams.push(zigzag(px, py, b.x, b.y - 70, '#c8b8ff')); damageBoss(true); damageBoss(true); }
+    SFX.rayos(); G.shake = 12; toast('¡Rayos!', '#c8b8ff');
+  } else if (s.id === 'rugido') {
+    for (let k = 0; k < 3; k++) G.waves.push({ x: hx, y: hy, r: 10 - k * 70, sp: 900, col: '#ffb02a', max: 560 });
+    SFX.rugido(); G.shake = 16; toast('¡RAAAWR!', '#ffb02a');
+    if (G.boss && G.boss.st !== 'enter') { damageBoss(true); } if (G.boss && G.boss.st !== 'enter') { G.boss.st = 'charge'; G.boss.scared = 3.2; toast('¡El malo se ha asustado! ¡Golpéale!', '#ffe81f'); }
+  }
 }
 
 /* ---------- generación ---------- */
@@ -916,11 +1120,11 @@ function spawnItem(type, why) {
 
 function startBoss() {
   const V = VILLAINS[G.level];
-  G.boss = { x: VW + 150, y: GROUND - 140, hp: 3 + G.level + G.cycle * 2, st: 'enter', t: 0, shootT: 2.5, chargeT: 3, hurtT: 0, sw: -1, cfg: V };
+  G.boss = { x: VW + 150, y: GROUND - 140, hp: 5 + G.level * 2 + G.cycle * 2, st: 'enter', t: 0, shootT: 1.6, chargeT: 4, hurtT: 0, sw: -1, shots: 0, cfg: V };
   G.boss.max = G.boss.hp;
   G.ents = G.ents.filter(e => e.x < VW && e.k !== 'tok');
   SFX.alarm(); toast(MASTER().name + ': ¡Ahora sí puedes luchar! Derrota a ' + V.name, '#ff6b8a');
-  toast('Devuelve sus disparos con el sable o golpéale cuando se acerque', '#ffffff');
+  toast('Devuelve sus disparos con el sable y golpéale cuando se acerque', '#ffffff');
 }
 
 /* =========================================================
@@ -940,9 +1144,9 @@ function update(dt) {
   G.t += dt; G.levelTime += dt;
   // En táctil el botón SALTAR ocupa la esquina: el gato corre a su derecha
   P.x = COARSE ? Math.max(130 / (SC / DPR) + 45, VW * .2) : Math.max(120, VW * .18);
-  const ocean = isOcean();
+  const ocean = isOcean(), mt = curMission();
   const base = 290 + G.level * 18 + G.cycle * 40 + Math.min(G.levelTime * 3, 90);
-  const sp = G.speed = G.boss ? base * .55 : base;
+  const sp = G.speed = G.halt ? 0 : G.boss ? base * .55 : base;
   G.bgX += sp * dt;
   G.score += sp * dt * .05 * (1 + G.cycle * .5);
   if (G.score > G.best && !G.newRecord && G.best > 0) { G.newRecord = true; toast('¡Nuevo récord!', '#ff3fa4'); }
@@ -950,6 +1154,8 @@ function update(dt) {
   G.freeze = Math.max(0, G.freeze - dt); G.inv = Math.max(0, G.inv - dt);
   G.shield = Math.max(0, G.shield - dt); G.magnet = Math.max(0, G.magnet - dt);
   G.shake = Math.max(0, G.shake - dt * 40);
+  if (G.char.special) G.spe = Math.min(1, G.spe + dt / SPECIAL_CD);
+  if (G.banner) { G.banner.life -= dt; if (G.banner.life <= 0) G.banner = null; }
 
   // jugador
   P.vy += (ocean ? 1100 : 2300) * dt;
@@ -964,11 +1170,16 @@ function update(dt) {
   const sb = { x: P.x - 10, y: P.y - 130, w: 125, h: 140 };
 
   // generación
-  if (!G.boss && G.endT <= 0) {
-    G.spawnD -= sp * dt;
-    if (G.spawnD <= 0) { spawnHazard(); G.spawnD = sp * rand(1.05, 1.75) * Math.max(.7, 1 - G.level * .04 - G.cycle * .08); }
-    G.tokenD -= sp * dt;
-    if (G.tokenD <= 0) { const onScreen = G.ents.filter(e => e.k === 'tok').length; if (G.tokens + onScreen < 12) spawnToken(); G.tokenD = sp * rand(2.2, 2.9); }
+  if (!G.boss && G.endT <= 0 && !G.halt && G.bossDelay <= 0) {
+    if (!(mt === 'rescue' && G.cellSpawned)) {
+      G.spawnD -= sp * dt;
+      if (G.spawnD <= 0) { spawnHazard(); G.spawnD = sp * rand(1.05, 1.75) * Math.max(.7, 1 - G.level * .04 - G.cycle * .08); }
+    }
+    if (mt === 'collect') {
+      G.tokenD -= sp * dt;
+      if (G.tokenD <= 0) { const onScreen = G.ents.filter(e => e.k === 'tok').length; if (G.tokens + onScreen < TOKENS_PER_MISSION) spawnToken(); G.tokenD = sp * rand(2.1, 2.7); }
+    }
+    if (mt === 'rescue' && !G.cellSpawned) { G.rescueD -= sp * dt; if (G.rescueD <= 0) spawnCell(); }
     G.itemCD -= dt;
     if (G.itemCD <= 0) {
       if (G.lives <= 2) spawnItem('vida', 'te envío una vida extra'), G.itemCD = 12;
@@ -976,11 +1187,58 @@ function update(dt) {
       else spawnItem('fuerza', 'usa la Fuerza para atraer holocrones'), G.itemCD = rand(16, 22);
     }
   }
+  if (G.bossDelay > 0) { G.bossDelay -= dt; if (G.bossDelay <= 0) startBoss(); }
   if (G.endT > 0) { G.endT -= dt; if (G.endT <= 0) { levelComplete(); return; } }
+
+  // efectos especiales: ondas, rayos/láseres y la nave
+  for (let i = G.waves.length - 1; i >= 0; i--) {
+    const w = G.waves[i]; w.r += w.sp * dt;
+    if (w.r > 0) G.ents.forEach(e => {
+      if (e.dead || !(isEnemy(e) || e.k === 'obs' || (e.k === 'bolt' && !e.refl))) return;
+      if (Math.hypot(e.x - w.x, (e.y - e.h / 2) - w.y) < w.r) { if (e.k === 'bolt') e.dead = true; else killEnt(e, w.col); }
+    });
+    if (G.boss && w.boss && !w.hitBoss && w.r > Math.abs(G.boss.x - w.x)) { w.hitBoss = true; damageBoss(true); damageBoss(true); if (G.boss) G.boss.x += 90; }
+    if (w.r > (w.max || VW * 1.3)) G.waves.splice(i, 1);
+  }
+  for (let i = G.beams.length - 1; i >= 0; i--) { G.beams[i].life -= dt; if (G.beams[i].life <= 0) G.beams.splice(i, 1); }
+  if (G.ship) {
+    const s = G.ship; s.x += 600 * dt; s.y = 115 + Math.sin(G.t * 6) * 6; s.cd -= dt;
+    if (s.cd <= 0 && s.x > 20 && s.x < VW - 20) {
+      const tg = G.ents.filter(e => isEnemy(e) && !e.dead && e.x > 0 && e.x < VW);
+      if (tg.length) {
+        const e = tg[Math.floor(Math.random() * tg.length)];
+        G.beams.push({ pts: [[s.x + 40, s.y + 8], [e.x, e.y - e.h / 2]], col: '#ff4040', life: .2, max: .2, w: 4 });
+        killEnt(e, '#ff8040'); SFX.laser(); s.cd = .12;
+      } else if (G.boss && G.boss.st !== 'enter' && s.bossHits < 2) {
+        const b = G.boss; G.beams.push({ pts: [[s.x + 40, s.y + 8], [b.x, b.y - 70]], col: '#ff4040', life: .2, max: .2, w: 5 });
+        damageBoss(true); s.bossHits++; SFX.laser(); s.cd = .4;
+      } else s.cd = .1;
+    }
+    if (s.x > VW + 220) G.ship = null;
+  }
 
   // entidades
   for (let i = G.ents.length - 1; i >= 0; i--) {
     const e = G.ents[i];
+    if (!e) continue; // la lista puede haberse recortado dentro del bucle
+    if (e.dead) { G.ents.splice(i, 1); continue; }
+
+    if (e.k === 'holo') { // Leia digital: va a por el droide más cercano
+      e.life -= dt; e.cd -= dt; if (e.sw >= 0) { e.sw += dt / .3; if (e.sw >= 1) e.sw = -1; }
+      let tg = null, bd = 1e9;
+      G.ents.forEach(o => { if (isEnemy(o) && !o.dead && o.x > e.x - 60 && o.x < VW && o.x - e.x < bd) { bd = o.x - e.x; tg = o; } });
+      const B = G.boss && G.boss.st !== 'enter' ? G.boss : null;
+      const tx = tg ? tg.x - 45 : B ? B.x - 70 : P.x + 140;
+      e.x = clamp(e.x + (tx - e.x) * Math.min(1, dt * 5), 0, VW - 40);
+      if (e.cd <= 0) {
+        if (tg && Math.abs(tg.x - e.x) < 80) { killEnt(tg, '#7ff6ff'); e.sw = 0; e.cd = .4; SFX.saber(); }
+        else if (!tg && B && Math.abs(B.x - e.x) < 100) { damageBoss(true); e.sw = 0; e.cd = 1.1; SFX.saber(); }
+      }
+      if (e.life <= 0) { burst(e.x, GROUND - 40, '#7ff6ff', 30, 200); G.ents.splice(i, 1); }
+      continue;
+    }
+    if (e.k === 'freed') { e.x += (260 - sp) * dt; e.life -= dt; if (e.life <= 0) G.ents.splice(i, 1); continue; }
+
     if (e.k === 'bolt') { e.x += e.vx * dt; e.y += (e.vy || 0) * dt; }
     else e.x -= (sp + (e.vx || 0)) * dt;
     if (e.k === 'drone' || (e.k === 'obs' && e.air && ocean)) e.y = e.y0 + Math.sin(G.t * 2.4 + e.ph) * 30;
@@ -991,12 +1249,27 @@ function update(dt) {
     if (e.x < -160 || e.x > VW + 400) { G.ents.splice(i, 1); continue; }
     const b = box(e);
 
-    if (e.k === 'tok' && G.tokens < 12 && hit(pb, b)) {
+    if (e.k === 'cell') { // celda con un padawan: se para delante y hay que romperla
+      e.hurtT = Math.max(0, e.hurtT - dt);
+      if (!G.halt && e.x <= P.x + 120) {
+        G.halt = true;
+        G.ents.forEach(o => { if (o.k === 'obs' || o.k === 'npc') { o.dead = true; burst(o.x, o.y - o.h / 2, '#ffffff', 10, 160); } });
+        for (let k = 0; k < 2; k++) G.ents.push({ k: 'droid', x: VW + 60 + k * 170, y: GROUND, w: 30, h: 74, vx: 140 });
+        toast('¡Rompe la celda con el sable! Cuidado con los guardias', '#ffe81f');
+      }
+      if (G.halt) e.x = P.x + 120;
+      if (saberOn && e.hurtT <= 0 && hit(sb, box(e))) {
+        e.hp--; e.hurtT = .3; SFX.cellHit(); burst(e.x - 30, e.y - 60, '#ffe81f', 14, 220); G.shake = 5;
+        if (e.hp <= 0) { G.ents.splice(i, 1); freePadawan(e); }
+      }
+      continue;
+    }
+    if (e.k === 'tok' && mt === 'collect' && G.tokens < TOKENS_PER_MISSION && hit(pb, b)) {
       G.tokens++; const pts = 100 * (G.level + 1) * (1 + G.cycle);
-      G.score += pts; SFX.coin(); burst(e.x, e.y - 15, '#22e4ff', 16, 220); floatText(e.x, e.y - 30, '+' + pts, '#22e4ff');
-      toast('✔ Misión ' + G.tokens + '/12: ' + LV().missions[G.tokens - 1], '#3dff7a');
+      G.score += pts; SFX.coin(); burst(e.x, e.y - 15, '#22e4ff', 16, 220);
+      floatText(e.x, e.y - 30, G.tokens + '/' + TOKENS_PER_MISSION, '#22e4ff');
       G.ents.splice(i, 1);
-      if (G.tokens >= 12) startBoss();
+      if (G.tokens >= TOKENS_PER_MISSION) completeMission();
       continue;
     }
     if (e.k === 'item' && hit(pb, b)) {
@@ -1006,9 +1279,9 @@ function update(dt) {
       else { G.magnet = 9; floatText(e.x, e.y - 30, 'FUERZA', '#c08aff'); }
       G.ents.splice(i, 1); continue;
     }
-    if ((e.k === 'droid' || e.k === 'drone') && saberOn && hit(sb, b)) {
-      const pts = 50 * (1 + G.cycle); G.score += pts; SFX.kill(); G.shake = 6;
-      burst(e.x, e.y - e.h / 2, '#ffb02a', 22, 300, 400); burst(e.x, e.y - e.h / 2, '#555', 10, 180, 400); floatText(e.x, e.y - e.h, '+' + pts, '#ffb02a');
+    if (isEnemy(e) && saberOn && hit(sb, b)) {
+      killEnt(e); SFX.kill(); G.shake = 6; burst(e.x, e.y - e.h / 2, '#555', 10, 180, 400);
+      G.spe = Math.min(1, G.spe + .05);
       G.ents.splice(i, 1); continue;
     }
     if (e.k === 'npc' && saberOn && !e.hitOnce && hit(sb, b)) {
@@ -1020,14 +1293,14 @@ function update(dt) {
       if (!e.refl && saberOn && hit(sb, b)) {
         e.refl = true; SFX.deflect(); G.score += 25;
         const B = G.boss; const tx = B ? B.x : VW, ty = B ? B.y - 70 : e.y;
-        const d = Math.hypot(tx - e.x, ty - e.y) || 1; e.vx = (tx - e.x) / d * 760; e.vy = (ty - e.y) / d * 760;
-        burst(e.x, e.y, G.char.saber, 10, 200); continue;
+        const d = Math.hypot(tx - e.x, ty - e.y) || 1; e.vx = (tx - e.x) / d * 800; e.vy = (ty - e.y) / d * 800;
+        burst(e.x, e.y, saberColor(G.t), 10, 200); continue;
       }
       if (e.refl && G.boss && hit(b, bossBox())) { damageBoss(); G.ents.splice(i, 1); continue; }
       if (!e.refl && hit(pb, b)) { hurt(); G.ents.splice(i, 1); continue; }
       continue;
     }
-    if ((e.k === 'obs' || e.k === 'droid' || e.k === 'drone') && hit(pb, b)) {
+    if ((e.k === 'obs' || isEnemy(e)) && hit(pb, b)) {
       if (G.shield > 0) { G.shield = Math.max(0, G.shield - 2); SFX.kill(); burst(e.x, e.y - e.h / 2, '#22e4ff', 16, 240); G.ents.splice(i, 1); continue; }
       hurt(); if (G.state !== 'play') return;
     }
@@ -1039,12 +1312,12 @@ function update(dt) {
   for (let i = G.parts.length - 1; i >= 0; i--) { const p = G.parts[i]; p.life -= dt; if (p.life <= 0) { G.parts.splice(i, 1); continue; } p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
   for (let i = G.floats.length - 1; i >= 0; i--) { const f = G.floats[i]; f.life -= dt; f.y -= 50 * dt; if (f.life <= 0) G.floats.splice(i, 1); }
   // estela de partículas al correr
-  if (P.onGround && Math.random() < .4 && !ocean) G.parts.push({ x: P.x - 10, y: GROUND - 2, vx: -rand(40, 120), vy: -rand(20, 80), life: .4, max: .4, c: 'rgba(255,255,255,.6)', s: rand(1.5, 3), g: 200 });
+  if (sp > 0 && P.onGround && Math.random() < .4 && !ocean) G.parts.push({ x: P.x - 10, y: GROUND - 2, vx: -rand(40, 120), vy: -rand(20, 80), life: .4, max: .4, c: 'rgba(255,255,255,.6)', s: rand(1.5, 3), g: 200 });
 }
 
 const bossBox = () => { const b = G.boss; return { x: b.x - 34, y: b.y - 128, w: 68, h: 124 }; };
-function damageBoss() {
-  const b = G.boss; if (!b || b.hurtT > 0 || b.hp <= 0) return;
+function damageBoss(force) {
+  const b = G.boss; if (!b || b.hp <= 0 || (!force && b.hurtT > 0)) return;
   b.hp--; b.hurtT = .35; SFX.bossHit(); G.shake = 10; burst(b.x, b.y - 70, '#ff3f6e', 18, 260);
   if (b.hp <= 0) {
     const pts = 1000 * (G.level + 1) * (1 + G.cycle); G.score += pts;
@@ -1056,38 +1329,43 @@ function damageBoss() {
 }
 function updateBoss(dt, pb, sb, saberOn) {
   const b = G.boss; b.t += dt; b.hurtT = Math.max(0, b.hurtT - dt);
-  const baseX = VW - 170, ocean = isOcean();
+  const ocean = isOcean(), lv = G.level + G.cycle;
+  const baseX = VW - 170 + Math.sin(b.t * 1.3) * 60;
   if (b.sw >= 0) { b.sw += dt / .3; if (b.sw >= 1) b.sw = -1; }
   if (b.st === 'enter') { b.x += (baseX - b.x) * Math.min(1, dt * 2.5); if (Math.abs(b.x - baseX) < 6) b.st = 'fight'; return; }
-  const targetY = GROUND - 60 - (Math.sin(b.t * 1.5) * .5 + .5) * (ocean ? 240 : 170);
+  const targetY = GROUND - 60 - (Math.sin(b.t * (1.9 + lv * .25)) * .5 + .5) * (ocean ? 260 : 190);
   if (b.st === 'fight') {
-    b.x += (baseX - b.x) * Math.min(1, dt * 3); b.y += (targetY - b.y) * Math.min(1, dt * 3);
+    b.x += (baseX - b.x) * Math.min(1, dt * 4); b.y += (targetY - b.y) * Math.min(1, dt * 5);
     b.shootT -= dt;
     if (b.shootT <= 0) {
-      const sx = b.x - 40, sy = b.y - 72, ty = P.y - 40, spd = 290 + G.level * 22 + G.cycle * 35;
-      const tt = Math.abs(sx - P.x) / spd;
-      G.ents.push({ k: 'bolt', x: sx, y: sy, w: 30, h: 10, vx: -spd, vy: clamp((ty - sy) / tt, -260, 260) });
-      b.sw = 0; SFX.shoot();
-      b.shootT = Math.max(1.1, 2.1 - G.level * .12 - G.cycle * .1);
+      const sx = b.x - 40, sy = b.y - 72, ty = P.y - 40, spd = 360 + G.level * 30 + G.cycle * 40;
+      const vy0 = clamp((ty - sy) / (Math.abs(sx - P.x) / spd), -280, 280);
+      const spread = (G.level >= 1 && b.shots % 3 === 2) || (G.level >= 3 && b.shots % 2 === 1);
+      (spread ? [-150, 0, 150] : [0]).forEach(o => G.ents.push({ k: 'bolt', x: sx, y: sy, w: 30, h: 10, vx: -spd, vy: vy0 + o }));
+      b.shots++; b.sw = 0; SFX.shoot();
+      b.shootT = Math.max(.6, 1.25 - G.level * .1 - G.cycle * .1);
     }
     b.chargeT -= dt;
-    if (b.chargeT <= 0) { b.st = 'charge'; toast('¡Viene hacia ti! Cuando se pare, golpéale con el sable', '#ffe81f'); }
+    if (b.chargeT <= 0) { b.st = 'charge'; toast('¡Viene hacia ti! Golpéale y salta cuando ataque', '#ffe81f'); }
   } else if (b.st === 'charge') {
     // Se acerca y se para justo delante del jugador, al alcance del sable
     const tx = P.x + 105;
-    b.x += (tx - b.x) * Math.min(1, dt * 3.2); b.y += (GROUND - b.y) * Math.min(1, dt * 4);
-    if (Math.abs(b.x - tx) < 10) { b.st = 'open'; b.openT = 2; }
+    b.x += (tx - b.x) * Math.min(1, dt * 5); b.y += (GROUND - b.y) * Math.min(1, dt * 5);
+    if (Math.abs(b.x - tx) < 10) { b.st = 'open'; b.stunned = !!b.scared; b.openT = b.scared || Math.max(.9, 1.4 - G.level * .08); b.scared = 0; }
   } else if (b.st === 'open') {
-    // Momento de golpearle: se queda quieto y no hace daño al tocarte
-    b.x = P.x + 105; b.y += (GROUND - b.y) * Math.min(1, dt * 4); b.openT -= dt;
-    if (b.openT <= 0) b.st = 'return';
+    // Momento de golpearle. Al final da un sablazo: hay que saltar para esquivarlo
+    b.x = P.x + 105; b.y += (GROUND - b.y) * Math.min(1, dt * 5); b.openT -= dt;
+    if (b.openT <= 0) {
+      if (!b.stunned) { b.sw = 0; SFX.slash(); if (P.y > GROUND - 70) hurt(); }
+      if (!G.boss) return;
+      b.st = 'return';
+    }
   } else if (b.st === 'return') {
-    b.x += 420 * dt; b.y += (targetY - b.y) * Math.min(1, dt * 3);
-    if (b.x >= baseX) { b.st = 'fight'; b.chargeT = rand(3, 4.5); }
+    b.x += 520 * dt; b.y += (targetY - b.y) * Math.min(1, dt * 4);
+    if (b.x >= baseX) { b.st = 'fight'; b.chargeT = rand(3.5, 5.5); }
   }
-  // El malo solo hace daño con sus disparos; se le golpea con el sable cuando se acerca
   if (saberOn && (b.st === 'open' || b.st === 'charge') && hit(sb, bossBox())) {
-    damageBoss(); if (G.boss) { b.st = 'return'; burst(b.x - 30, b.y - 60, G.char.saber, 14, 260); }
+    damageBoss(); if (G.boss) { b.st = 'return'; burst(b.x - 30, b.y - 60, saberColor(G.t), 14, 260); }
   }
 }
 
@@ -1104,6 +1382,7 @@ function render() {
 
   // entidades
   for (const e of G.ents) {
+    if (e.dead) continue;
     if (e.k === 'obs') drawObstacle(g, e, L.key, t);
     else if (e.k === 'droid') drawDroid(g, e.x, e.y, t, L.droid);
     else if (e.k === 'drone') drawDrone(g, e.x, e.y - e.h / 2, t + e.ph);
@@ -1113,8 +1392,15 @@ function render() {
       if (e.x < VW - 20) drawBubble(g, e.x, e.y - 86, e.say);
     } else if (e.k === 'tok') { drawHolocron(g, e.x, e.y - 15 + Math.sin(t * 4 + e.x * .01) * 4, 1.1, t, false); }
     else if (e.k === 'item') drawItem(g, e, t);
-    else if (e.k === 'bolt') {
-      const c = e.refl ? G.char.saber : '#ff2a2a', a = Math.atan2(e.vy || 0, e.vx);
+    else if (e.k === 'cell') drawCell(g, e, t);
+    else if (e.k === 'freed') { drawCat(g, e.cfg, e.x, e.y, 1, t, { saber: false }); drawBubble(g, e.x, e.y - 86, '¡Gracias!'); }
+    else if (e.k === 'holo') {
+      g.save(); g.globalAlpha = .5 + Math.sin(t * 20) * .12; g.shadowColor = '#22e4ff'; g.shadowBlur = 16;
+      drawCat(g, HOLO, e.x, e.y, 1.05, t, { swing: e.sw }); g.restore();
+      g.strokeStyle = 'rgba(127,246,255,.35)'; g.lineWidth = 1;
+      for (let k = 0; k < 8; k++) { const yy = e.y - 8 - k * 10 - (t * 30) % 10; g.beginPath(); g.moveTo(e.x - 22, yy); g.lineTo(e.x + 28, yy); g.stroke(); }
+    } else if (e.k === 'bolt') {
+      const c = e.refl ? saberColor(t) : '#ff2a2a', a = Math.atan2(e.vy || 0, e.vx);
       g.save(); g.translate(e.x, e.y - e.h / 2); g.rotate(a); g.shadowColor = c; g.shadowBlur = 14;
       line(g, -16, 0, 16, 0, c, 9); line(g, -14, 0, 14, 0, '#fff', 3); g.restore(); g.shadowBlur = 0;
     }
@@ -1129,10 +1415,12 @@ function render() {
     drawCat(g, b.cfg, b.x, b.y, 1.75, t, { facing: -1, run: false, swing: b.sw, saberOn: true });
     g.restore();
     if (b.st === 'open' || b.st === 'charge') {
+      const warn = b.st === 'open' && b.openT < .45 && !b.stunned;
+      const txt = warn ? '¡SALTA!' : b.stunned ? '¡ASUSTADO! ¡GOLPEA!' : '¡GOLPEA!';
       const s = 1 + Math.sin(t * 12) * .08;
       g.save(); g.translate(b.x, b.y - 165); g.scale(s, s);
       g.font = '900 24px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.lineWidth = 5; g.strokeStyle = '#000';
-      g.strokeText('¡GOLPEA!', 0, 0); g.fillStyle = '#ffe81f'; g.fillText('¡GOLPEA!', 0, 0); g.restore();
+      g.strokeText(txt, 0, 0); g.fillStyle = warn ? '#ff3f6e' : '#ffe81f'; g.fillText(txt, 0, 0); g.restore();
     }
   }
 
@@ -1141,7 +1429,7 @@ function render() {
     ell(g, P.x, GROUND + 2, 22 * (1 - (GROUND - P.y) / 500), 5, 'rgba(0,0,0,.25)');
     if (!(G.inv > 0 && Math.floor(t * 20) % 2)) {
       if (G.magnet > 0) { g.strokeStyle = 'rgba(192,138,255,' + (.4 + Math.sin(t * 10) * .2) + ')'; g.lineWidth = 3; g.beginPath(); g.arc(P.x, P.y - 40, 52 + Math.sin(t * 8) * 4, 0, TAU); g.stroke(); }
-      drawCat(g, G.char, P.x, P.y, 1.05, G.freeze > 0 ? 0 : t, { run: P.onGround && G.freeze <= 0, swing: P.swing });
+      drawCat(g, playerCfg(), P.x, P.y, 1.05, G.freeze > 0 ? 0 : t, { run: P.onGround && G.freeze <= 0 && G.speed > 0, swing: P.swing });
       if (G.shield > 0) { g.fillStyle = 'rgba(34,228,255,.18)'; g.strokeStyle = '#22e4ff'; g.lineWidth = 3; g.beginPath(); g.arc(P.x, P.y - 40, 48, 0, TAU); g.fill(); g.stroke(); }
       if (G.freeze > 0) {
         g.fillStyle = 'rgba(190,240,255,.55)'; rr(g, P.x - 30, P.y - 92, 60, 92, 10); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
@@ -1149,6 +1437,23 @@ function render() {
       }
     }
   }
+
+  // ataques especiales
+  for (const w of G.waves) {
+    if (w.r <= 0) continue;
+    g.globalAlpha = clamp(1 - w.r / (w.max || VW * 1.3), 0, 1) * .85;
+    g.strokeStyle = w.col; g.lineWidth = 12; g.beginPath(); g.arc(w.x, w.y, w.r, 0, TAU); g.stroke();
+    g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();
+  }
+  g.globalAlpha = 1;
+  for (const bm of G.beams) {
+    g.globalAlpha = Math.max(0, bm.life / bm.max); g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const [c, w] of [[bm.col, (bm.w || 3) * 2.5], ['#fff', bm.w || 3]]) {
+      g.strokeStyle = c; g.lineWidth = w; g.beginPath(); bm.pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+    }
+  }
+  g.globalAlpha = 1;
+  if (G.ship) drawShip(g, G.ship.x, G.ship.y, t);
 
   // partículas
   for (const p of G.parts) { g.globalAlpha = Math.max(0, p.life / p.max); circ(g, p.x, p.y, p.s, p.c); }
@@ -1159,7 +1464,7 @@ function render() {
 
   // HUD (pantalla)
   g.setTransform(SC, 0, 0, SC, 0, 0);
-  if (G.state === 'play' || G.state === 'pause' || G.state === 'intro' || G.state === 'over') drawHUD(g);
+  if (G.state === 'play' || G.state === 'pause' || G.state === 'intro' || G.state === 'over') { drawHUD(g); drawBanner(g); }
 }
 
 function drawItem(g, e, t) {
@@ -1168,6 +1473,57 @@ function drawItem(g, e, t) {
   if (e.type === 'vida') { g.shadowColor = '#ff3f6e'; circ(g, cx, cy, 17, 'rgba(255,255,255,.9)'); drawHeart(g, cx, cy + 1, 9, '#ff3f6e'); }
   else if (e.type === 'escudo') { g.shadowColor = '#22e4ff'; circ(g, cx, cy, 17, '#22e4ff'); circ(g, cx, cy, 11, '#0a6fb0'); circ(g, cx, cy, 5, '#e8ffff'); }
   else { g.shadowColor = '#c08aff'; circ(g, cx, cy, 17, '#7d3bff'); g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); for (let a = 0; a < 9; a += .3) { const r = a * 1.4; g.lineTo(cx + Math.cos(a + t * 4) * r, cy + Math.sin(a + t * 4) * r); } g.stroke(); }
+  g.restore();
+}
+
+// Celda con un padawan encerrado (misión 3)
+function drawCell(g, e, t) {
+  const x = e.x, y = e.y, w = e.w, h = e.h, c = CHARS.find(o => o.id === e.who);
+  g.fillStyle = '#23233a'; rr(g, x - w / 2, y - h, w, h, 8); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x - w / 2 + 6, y - h + 14, w - 12, h - 22);
+  drawCat(g, c, x + 4, y - 8, .9, t * .3, { run: false, saber: false });
+  const gone = [[0, 1, 2, 3, 4, 5], [2, 3, 1, 4], [2, 3], []][e.hp] || [];
+  for (let k = 0; k < 6; k++) {
+    if (gone.includes(k)) continue;
+    const bx = x - w / 2 + 10 + k * (w - 20) / 5;
+    line(g, bx, y - h + 10, bx, y - 8, '#c9c9d6', 5); line(g, bx - 1.5, y - h + 10, bx - 1.5, y - 8, '#ffffff', 1.2);
+  }
+  g.fillStyle = '#5a5a6e'; g.fillRect(x - w / 2, y - h, w, 10); g.fillRect(x - w / 2, y - 8, w, 8);
+  circ(g, x + w / 2 - 12, y - h / 2, 7, '#ffd23a'); g.fillStyle = '#5a4a10'; g.fillRect(x + w / 2 - 13.5, y - h / 2 - 1, 3, 6);
+  for (let k = 0; k < 3; k++) circ(g, x - 14 + k * 14, y - h + 5, 3.5, k < e.hp ? '#ffe81f' : 'rgba(255,255,255,.25)');
+  if (e.hurtT > 0) { g.fillStyle = 'rgba(255,255,255,' + e.hurtT * 2 + ')'; rr(g, x - w / 2, y - h, w, h, 8); g.fill(); }
+  drawBubble(g, x, y - h - 10, G.halt ? '¡Rómpela con el sable!' : '¡Socorro!');
+}
+
+// Nave del ataque especial de Poe
+function drawShip(g, x, y, t) {
+  g.save(); g.translate(x, y);
+  g.shadowColor = '#7fd8ff'; g.shadowBlur = 22; ell(g, -54, 0, 9 + Math.sin(t * 40) * 2, 18, '#bff0ff'); g.shadowBlur = 0;
+  g.fillStyle = '#c9ccd4'; g.fillRect(40, -15, 36, 11); g.fillRect(40, 4, 36, 11);
+  ell(g, 0, 0, 58, 25, '#b4b8c2'); ell(g, -2, -3, 48, 19, '#dfe2e8');
+  circ(g, -4, -3, 11, '#a0a4ae'); circ(g, -4, -3, 5, '#7a7e88');
+  line(g, -40, -3, 30, -3, '#a0a4ae', 2); line(g, -4, -20, -4, 14, '#a0a4ae', 2);
+  g.fillStyle = '#b4b8c2'; g.fillRect(14, 16, 28, 9); circ(g, 42, 21, 9, '#b4b8c2'); circ(g, 44, 21, 4.5, '#2a3a5a');
+  g.restore();
+}
+
+function drawBanner(g) {
+  const b = G.banner; if (!b) return;
+  const a = clamp(Math.min(b.life * 2, (3.4 - b.life) * 5), 0, 1);
+  const W = Math.min(540, VW - 40), H = 110, x = VW / 2 - W / 2, y = (cvs.height / SC) * .44 - H / 2;
+  g.save(); g.globalAlpha = a;
+  g.fillStyle = 'rgba(8,5,30,.92)'; rr(g, x, y, W, H, 18); g.fill(); g.strokeStyle = '#ffe81f'; g.lineWidth = 3; g.stroke();
+  const ix = x + 60, iy = y + H / 2;
+  if (b.icon.saber) {
+    const c = b.icon.saber === 'rainbow' ? 'hsl(' + Math.floor((G.t * 240) % 360) + ',100%,62%)' : b.icon.saber;
+    g.save(); g.translate(ix, iy); g.rotate(-.8); g.lineCap = 'round';
+    g.shadowColor = c; g.shadowBlur = 16; line(g, -4, 0, 42, 0, c, 10); line(g, -4, 0, 42, 0, '#fff', 3.5); g.shadowBlur = 0;
+    g.lineCap = 'butt'; line(g, -28, 0, -4, 0, '#c9c9d2', 8); line(g, -20, 0, -16, 0, '#333', 8); g.restore();
+  } else if (b.icon.block) drawBlock(g, b.icon.block, ix - 26, iy - 26, 52);
+  else if (b.icon.char) drawCat(g, b.icon.char, ix + 2, iy + 42, 1, G.t, { run: false, saberOn: true });
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.font = '900 24px "Trebuchet MS",sans-serif'; g.fillStyle = '#ffe81f'; g.fillText(b.title, x + 120, y + 48, W - 135);
+  g.font = 'bold 14px "Trebuchet MS",sans-serif'; g.fillStyle = '#ffffff'; g.fillText(b.sub, x + 120, y + 78, W - 135);
   g.restore();
 }
 
@@ -1180,6 +1536,17 @@ function drawHUD(g) {
   g.font = '900 28px "Trebuchet MS",sans-serif'; g.fillStyle = '#ffe81f'; g.fillText(fmt(G.score), 26, 60);
   g.font = 'bold 13px "Trebuchet MS",sans-serif'; g.fillStyle = G.score > G.best ? '#ff3fa4' : '#ffffffcc';
   g.fillText('🏆 RÉCORD ' + fmt(Math.max(G.best, G.score)), 26, 80);
+  // barra del ataque especial
+  let py = 112;
+  const s = G.char.special;
+  if (s) {
+    const ready = G.spe >= 1;
+    g.fillStyle = 'rgba(5,3,20,.6)'; rr(g, 12, 94, 210, 26, 13); g.fill();
+    g.fillStyle = ready ? 'hsl(' + Math.floor((G.t * 300) % 360) + ',100%,55%)' : '#8a3dff'; rr(g, 18, 100, Math.max(14, 198 * G.spe), 14, 7); g.fill();
+    g.font = 'bold 11px "Trebuchet MS",sans-serif'; g.fillStyle = '#fff';
+    g.fillText(ready ? '⭐ ¡' + s.name.toUpperCase() + '! (C)' : '⭐ ' + s.name, 26, 111);
+    py = 138;
+  }
   // nivel + misiones
   const cx = VW / 2;
   g.textAlign = 'center'; g.font = '900 16px "Trebuchet MS",sans-serif'; g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.6)';
@@ -1189,21 +1556,25 @@ function drawHUD(g) {
     const b = G.boss, w = 300;
     g.fillStyle = 'rgba(0,0,0,.6)'; rr(g, cx - w / 2 - 4, 40, w + 8, 20, 10); g.fill();
     g.fillStyle = '#ff2a4a'; rr(g, cx - w / 2, 44, w * b.hp / b.max, 12, 6); g.fill();
-    g.font = 'bold 13px "Trebuchet MS",sans-serif'; g.strokeText(b.cfg.name, cx, 78); g.fillStyle = '#ffb3c0'; g.fillText(b.cfg.name, cx, 78);
+    g.font = 'bold 13px "Trebuchet MS",sans-serif'; g.strokeText('Misión 5/5 · ' + b.cfg.name, cx, 78); g.fillStyle = '#ffb3c0'; g.fillText('Misión 5/5 · ' + b.cfg.name, cx, 78);
   } else {
-    for (let i = 0; i < 12; i++) drawHolocron(g, cx - 5.5 * 22 + i * 22, 50, .62, i < G.tokens ? G.t : 0, i >= G.tokens);
-    g.font = 'bold 12px "Trebuchet MS",sans-serif'; const mt = 'MISIONES ' + G.tokens + '/12';
-    g.strokeText(mt, cx, 80); g.fillStyle = '#9fe8ff'; g.fillText(mt, cx, 80);
+    for (let i = 0; i < 5; i++) {
+      const x = cx - 2 * 34 + i * 34, done = i < G.mi, cur = i === G.mi;
+      circ(g, x, 50, 12, done ? '#3dff7a' : cur ? '#ffe81f' : 'rgba(255,255,255,.22)');
+      g.font = '900 13px "Trebuchet MS",sans-serif'; g.fillStyle = done || cur ? '#0a0a20' : '#fff'; g.fillText(done ? '✔' : String(i + 1), x, 55);
+    }
+    const mtxt = missionTitle(LV(), G.mi) + (curMission() === 'collect' ? '  ·  ' + G.tokens + '/' + TOKENS_PER_MISSION + ' holocrones' : '');
+    g.font = 'bold 12px "Trebuchet MS",sans-serif';
+    g.strokeText(mtxt, cx, 80, VW - 470); g.fillStyle = '#9fe8ff'; g.fillText(mtxt, cx, 80, VW - 470);
   }
   // vidas
   for (let i = 0; i < Math.max(3, G.lives); i++) drawHeart(g, VW - pad - i * 32, 32, 11, i < G.lives ? '#ff3f6e' : 'rgba(255,255,255,.2)');
-  let py = 108;
   g.textAlign = 'left'; g.font = 'bold 13px "Trebuchet MS",sans-serif';
   if (G.shield > 0) { g.fillStyle = '#22e4ff'; g.fillText('🛡 ESCUDO ' + G.shield.toFixed(1) + 's', 18, py); py += 18; }
   if (G.magnet > 0) { g.fillStyle = '#c08aff'; g.fillText('✨ FUERZA ' + G.magnet.toFixed(1) + 's', 18, py); }
   // avisos
   g.textAlign = 'center'; g.font = 'bold 16px "Trebuchet MS",sans-serif';
-  let ty = 112;
+  let ty = 114;
   for (let i = G.toasts.length - 1; i >= 0; i--) {
     const m = G.toasts[i]; if (G.state === 'play') m.life -= 1 / 60;
     if (m.life <= 0) { G.toasts.splice(i, 1); continue; }
@@ -1217,13 +1588,176 @@ function drawHUD(g) {
 }
 
 /* =========================================================
+   MI CIUDAD · mini constructor con bloques y vecinos
+   ========================================================= */
+const CW = 64, CH = 14;
+const CITY = { cam: 0, tool: 'hierba', npcs: [], t: 0, down: false, panX: null, lastCell: '', stamped: false, dirty: false, hover: null };
+let grid = null;
+const PASS = { pared: 1, ventana: 1, puerta: 1, agua: 1 }; // fachadas y agua: se puede pasar por delante
+const cityIdx = (c, r) => r * CW + c;
+function getB(c, r) {
+  if (r < 0) return BLOCK_IDS.indexOf('piedra') + 1;
+  if (c < 0 || c >= CW || r >= CH) return 0;
+  return grid[cityIdx(c, r)];
+}
+const solidAt = (c, r) => { const v = getB(c, r); return v > 0 && !PASS[BLOCK_IDS[v - 1]]; };
+function setB(c, r, id) { if (c < 0 || c >= CW || r < 0 || r >= CH) return; grid[cityIdx(c, r)] = id ? BLOCK_IDS.indexOf(id) + 1 : 0; }
+function stampHouse(c, r) {
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 6; x++) setB(c + x, r + y, 'pared');
+  setB(c + 1, r, 'puerta'); setB(c + 1, r + 1, 'puerta'); setB(c + 3, r + 2, 'ventana'); setB(c + 4, r + 2, 'ventana');
+  [[-1, 8], [0, 6], [1, 4], [2, 2]].forEach(([dx, w], k) => { for (let x = 0; x < w; x++) setB(c + dx + x, r + 4 + k, 'tejado'); });
+}
+function loadCity() {
+  grid = new Array(CW * CH).fill(0);
+  if (typeof SAVE.world === 'string' && SAVE.world.length === CW * CH) {
+    for (let i = 0; i < grid.length; i++) grid[i] = parseInt(SAVE.world[i], 36) || 0;
+    return;
+  }
+  for (let c = 0; c < CW; c++) { setB(c, 0, 'piedra'); setB(c, 1, 'tierra'); setB(c, 2, 'hierba'); }
+  stampHouse(9, 3); stampHouse(28, 3);
+}
+function saveCity() { SAVE.world = grid.map(v => v.toString(36)).join(''); persist(); }
+
+function drawBlock(g, id, x, y, s) {
+  const B = BLOCKS[id]; if (!B) return;
+  const k = s / 16;
+  if (id === 'ventana') { g.fillStyle = B.c2; g.fillRect(x, y, s, s); g.fillStyle = B.c; g.fillRect(x + 2 * k, y + 2 * k, s - 4 * k, s - 4 * k); }
+  else { g.fillStyle = B.c; g.fillRect(x, y, s, s); }
+  g.fillStyle = B.c2;
+  switch (id) {
+    case 'hierba': g.fillRect(x, y, s, s * .35); for (let i = 0; i < 4; i++) g.fillRect(x + i * 4 * k + k, y + s * .35, 2 * k, 2 * k); break;
+    case 'ladrillo': g.fillRect(x, y + s * .47, s, k); g.fillRect(x, y + s - k, s, k); g.fillRect(x + s * .5, y, k, s * .5); g.fillRect(x + s * .2, y + s * .5, k, s * .5); break;
+    case 'ventana': g.fillRect(x + s / 2 - k * .7, y, k * 1.4, s); g.fillRect(x, y + s / 2 - k * .7, s, k * 1.4); g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(x + 3 * k, y + 3 * k, 3 * k, 2 * k); break;
+    case 'puerta': g.fillRect(x + 2 * k, y, k, s); g.fillRect(x + s - 3 * k, y, k, s); circ(g, x + s * .72, y + s * .55, k * 1.3, '#ffd23a'); break;
+    case 'madera': for (let i = 1; i < 4; i++) g.fillRect(x + i * 4 * k, y, k * .8, s); break;
+    case 'hojas': for (let i = 0; i < 6; i++) g.fillRect(x + ((i * 5 + 3) % 13) * k, y + ((i * 7 + 2) % 13) * k, 3 * k, 3 * k); break;
+    case 'cactus': g.fillRect(x + 3 * k, y, 2 * k, s); g.fillRect(x + 11 * k, y, 2 * k, s); g.fillStyle = '#ffffff'; for (let i = 0; i < 4; i++) g.fillRect(x + (i % 2 ? 9 : 6) * k, y + (2 + i * 4) * k, k, k); break;
+    case 'tejado': g.fillRect(x, y + s * .5, s, k * 1.5); g.fillRect(x, y + s - k * 1.5, s, k * 1.5); break;
+    case 'agua': g.fillRect(x, y + 3 * k, s, k); g.fillRect(x + 4 * k, y + 9 * k, 6 * k, k); break;
+    case 'hielo': g.fillRect(x + 3 * k, y + 3 * k, 5 * k, k); g.fillRect(x + 3 * k, y + 3 * k, k, 5 * k); break;
+    case 'pared': g.fillRect(x, y + s - k, s, k); break;
+    default: g.fillRect(x + 3 * k, y + 4 * k, 3 * k, 2 * k); g.fillRect(x + 10 * k, y + 10 * k, 3 * k, 2 * k); g.fillRect(x + 7 * k, y + 12 * k, 2 * k, 2 * k);
+  }
+  if (!PASS[id]) { g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x, y + s - k, s, k); g.fillRect(x + s - k, y, k, s); }
+}
+
+const CITY_SAYS = ['¡Qué casa tan bonita!', '¡Hola, vecino!', 'Miau', '¿Construimos algo?', '¡Me encanta esta ciudad!', 'Voy a la tienda', '¡Que la Fuerza te acompañe!', 'Necesitamos más casas', '¿Has visto mi sable?', '¡Qué buen día!'];
+function initCityNpcs() {
+  const mine = SAVE.chars.map(id => CHARS.find(c => c.id === id)).filter(c => c && c !== G.char);
+  const list = [G.char].concat(mine.slice(0, 5), [NPCS.waiter, NPCS.seller, MASTER()]);
+  CITY.npcs = list.map((o, i) => ({ o, x: 3 + i * 6.3, y: CH, vy: 0, dir: i % 2 ? -1 : 1, ground: false, pauseT: 0, say: '', sayT: rand(1, 7), me: o === G.char, ph: i * 1.7 }));
+}
+function updateCity(dt) {
+  CITY.t += dt;
+  CITY.npcs.forEach(n => {
+    n.sayT -= dt;
+    if (n.sayT <= 0) { if (n.say) { n.say = ''; n.sayT = rand(4, 10); } else { n.say = CITY_SAYS[Math.floor(Math.random() * CITY_SAYS.length)]; n.sayT = 2.6; } }
+    n.vy = Math.max(n.vy - 30 * dt, -14);
+    let ny = n.y + n.vy * dt; const cx = Math.floor(n.x);
+    n.ground = false;
+    if (n.vy <= 0 && solidAt(cx, Math.floor(ny))) { ny = Math.floor(ny) + 1; n.vy = 0; n.ground = true; }
+    if (n.vy > 0 && solidAt(cx, Math.floor(ny + 1.6))) n.vy = 0;
+    n.y = ny;
+    if (solidAt(cx, Math.floor(n.y + .1))) { n.y = Math.floor(n.y + .1) + 1; n.vy = 0; } // le han puesto un bloque encima
+    if (n.y < -3) { n.y = CH; n.x = rand(2, CW - 2); }
+    n.pauseT -= dt;
+    if (n.pauseT > 0) return;
+    if (n.ground && Math.random() < dt * .15) { n.pauseT = rand(.8, 2.5); if (Math.random() < .5) n.dir *= -1; return; }
+    const nx = n.x + n.dir * 1.8 * dt, front = Math.floor(nx + n.dir * .35), fr = Math.floor(n.y + .05);
+    if (front < 0 || front >= CW) { n.dir *= -1; return; }
+    if (solidAt(front, fr) || solidAt(front, fr + 1)) {
+      if (!n.ground) return;
+      if (solidAt(front, fr) && !solidAt(front, fr + 1) && !solidAt(front, fr + 2) && !solidAt(cx, fr + 2)) n.vy = 9.5;
+      else n.dir *= -1;
+    } else n.x = nx;
+  });
+}
+function cityLayout() {
+  const top = $('cityTop').getBoundingClientRect().bottom * DPR, bot = $('cityBar').getBoundingClientRect().top * DPR;
+  const CS = Math.max(10, (bot - top) / CH);
+  return { top, bot, CS, W: CW * CS };
+}
+function renderCity() {
+  const g = ctx, Lo = cityLayout(), CS = Lo.CS;
+  CITY.cam = clamp(CITY.cam, 0, Math.max(0, Lo.W - cvs.width));
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const gr = g.createLinearGradient(0, 0, 0, cvs.height); gr.addColorStop(0, '#3aa0ff'); gr.addColorStop(.7, '#bfe8ff'); gr.addColorStop(1, '#ffe3b0');
+  g.fillStyle = gr; g.fillRect(0, 0, cvs.width, cvs.height);
+  g.shadowColor = '#fff6c8'; g.shadowBlur = 40; circ(g, cvs.width * .82, Lo.top + CS * 2.2, CS * 1.6, '#fff6c8'); g.shadowBlur = 0;
+  for (let i = 0; i < 6; i++) {
+    const span = cvs.width + CS * 12, x = ((i * span / 6 + CITY.t * 14 * DPR - CITY.cam * .3) % span + span) % span - CS * 4, y = Lo.top + CS * (1 + (i % 3) * 1.3);
+    ell(g, x, y, CS * 2.2, CS * .8, 'rgba(255,255,255,.85)'); ell(g, x + CS, y - CS * .4, CS * 1.4, CS * .7, 'rgba(255,255,255,.85)');
+  }
+  g.fillStyle = '#7fc87a'; g.beginPath(); g.moveTo(0, Lo.bot);
+  for (let x = 0; x <= cvs.width + 20; x += 20) g.lineTo(x, Lo.bot - CS * 4.5 - Math.sin((x + CITY.cam * .5) / (CS * 6)) * CS * 1.5);
+  g.lineTo(cvs.width, Lo.bot); g.fill();
+  const c0 = Math.max(0, Math.floor(CITY.cam / CS)), c1 = Math.min(CW - 1, c0 + Math.ceil(cvs.width / CS) + 1);
+  for (let r = 0; r < CH; r++) for (let c = c0; c <= c1; c++) { const v = grid[cityIdx(c, r)]; if (v) drawBlock(g, BLOCK_IDS[v - 1], Math.floor(c * CS - CITY.cam), Math.floor(Lo.bot - (r + 1) * CS), Math.ceil(CS)); }
+  if (Lo.W - CITY.cam < cvs.width) { g.fillStyle = 'rgba(5,3,20,.55)'; g.fillRect(Lo.W - CITY.cam, Lo.top, cvs.width, Lo.bot - Lo.top); }
+  const s = 1.55 * CS / 75;
+  CITY.npcs.forEach(n => {
+    const px = n.x * CS - CITY.cam, py = Lo.bot - n.y * CS;
+    if (px < -CS * 3 || px > cvs.width + CS * 3) return;
+    drawCat(g, n.o, px, py, s, CITY.t + n.ph, { facing: n.dir, run: n.pauseT <= 0 && n.ground, saber: false });
+    g.save(); g.translate(px, py - 86 * s); g.scale(DPR, DPR);
+    if (n.say) drawBubble(g, 0, 0, n.say);
+    else if (n.me) { g.font = '900 12px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = '#000'; g.strokeText('⭐ Tú', 0, -6); g.fillStyle = '#ffe81f'; g.fillText('⭐ Tú', 0, -6); }
+    g.restore();
+  });
+  if (CITY.hover && CITY.tool !== 'mover') {
+    const [c, r] = CITY.hover;
+    g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 2 * DPR; g.strokeRect(c * CS - CITY.cam + 1, Lo.bot - (r + 1) * CS + 1, CS - 2, CS - 2);
+  }
+}
+function cityCell(e) {
+  const Lo = cityLayout(), x = e.clientX * DPR, y = e.clientY * DPR;
+  if (y < Lo.top || y > Lo.bot) return null;
+  return [Math.floor((x + CITY.cam) / Lo.CS), Math.floor((Lo.bot - y) / Lo.CS)];
+}
+function cityApply(cell) {
+  const [c, r] = cell; if (c < 0 || c >= CW || r < 0 || r >= CH) return;
+  const key = c + ',' + r; if (key === CITY.lastCell) return; CITY.lastCell = key;
+  const t = CITY.tool;
+  if (t === 'borrar') { if (getB(c, r)) { setB(c, r, null); SFX.erase(); CITY.dirty = true; } }
+  else if (t === 'casa') { if (!CITY.stamped) { stampHouse(c - 2, r); CITY.stamped = true; SFX.reward(); CITY.dirty = true; } }
+  else if (hasBlock(t) && getB(c, r) !== BLOCK_IDS.indexOf(t) + 1) { setB(c, r, t); SFX.place(); CITY.dirty = true; }
+}
+function swatchCss(id) {
+  const B = BLOCKS[id];
+  if (id === 'hierba') return 'linear-gradient(' + B.c2 + ' 38%,' + B.c + ' 38%)';
+  if (id === 'ventana') return 'linear-gradient(90deg,' + B.c + ' 44%,#fff 44% 56%,' + B.c + ' 56%)';
+  return B.c;
+}
+function buildCityBar() {
+  const bar = $('cityBar'); bar.innerHTML = '';
+  const tools = [['mover', '🖐', 'Mover'], ['borrar', '🧽', 'Borrar'], ['casa', '🏠', 'Casa']].concat(BLOCK_IDS.map(id => [id, '', BLOCKS[id].name]));
+  tools.forEach(([id, ico, name]) => {
+    const isBlock = !!BLOCKS[id], locked = isBlock && !hasBlock(id);
+    const b = document.createElement('button');
+    b.className = 'tool' + (CITY.tool === id ? ' sel' : '') + (locked ? ' locked' : '');
+    b.innerHTML = '<i style="background:' + (isBlock ? swatchCss(id) : 'transparent') + '">' + (locked ? '🔒' : ico) + '</i>' + name;
+    if (locked) b.innerHTML += '<small>Nivel ' + (LEVELS.findIndex(L => L.blocks.includes(id)) + 1) + '</small>';
+    b.onclick = () => { if (locked) { SFX.erase(); return; } CITY.tool = id; SFX.click(); buildCityBar(); };
+    bar.appendChild(b);
+  });
+}
+function openCity() {
+  AU.init(); G.state = 'city'; document.body.classList.remove('playing'); document.body.classList.add('inCity');
+  if (!grid) loadCity();
+  initCityNpcs(); buildCityBar(); show('city');
+}
+function closeCity() { if (grid) saveCity(); document.body.classList.remove('inCity'); openMenu(); }
+
+/* =========================================================
    BUCLE PRINCIPAL · requestAnimationFrame
    ========================================================= */
 let last = performance.now();
+const tSpecial = $('tSpecial');
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
-  if (G.state === 'play') update(dt);
+  if (G.state === 'city') { updateCity(dt); renderCity(); return; }
+  if (G.state === 'play') { update(dt); tSpecial.classList.toggle('ready', G.spe >= 1); }
   else if (G.state === 'intro' || G.state === 'victory') { G.t += dt; G.bgX += 60 * dt; }
   if (G.state === 'select') animateSelect(now / 1000);
   if (G.state !== 'menu' && G.state !== 'select') render();
@@ -1232,7 +1766,7 @@ function frame(now) {
 /* =========================================================
    UI: menús, selección de personaje, retratos
    ========================================================= */
-const SCREENS = ['menu', 'select', 'intro', 'pause', 'over', 'victory'];
+const SCREENS = ['menu', 'select', 'intro', 'pause', 'over', 'victory', 'city'];
 function show(id) { SCREENS.forEach(s => $(s).classList.toggle('show', s === id)); }
 
 function paintPortrait(cv, o, s, t, swing) {
@@ -1240,47 +1774,87 @@ function paintPortrait(cv, o, s, t, swing) {
   drawCat(g, o, cv.width / 2 + 4 * s, cv.height - 8, s, t || 0, { run: !!t, swing: swing === undefined ? -1 : swing, saberOn: !t && !!o.saber });
 }
 
-const lvBox = $('levels');
-function buildLevels() {
-  lvBox.innerHTML = '';
+// Escenarios: en el menú elige dónde empezar; en Game Over empieza directamente
+function buildLevels(box, startNow) {
+  box = box || $('levels'); box.innerHTML = '';
   LEVELS.forEach((L, i) => {
-    const d = document.createElement('div');
-    d.className = 'lvwrap' + (i > G.unlock ? ' locked' : '') + (i === G.startLevel ? ' sel' : '');
+    const locked = i > G.unlock, d = document.createElement('div');
+    d.className = 'lvwrap' + (locked ? ' locked' : '') + (!startNow && i === G.startLevel ? ' sel' : '');
     d.innerHTML = '<div class="lv lv' + (i + 1) + '"></div><span>Nivel ' + (i + 1) + ' · ' + L.name + '</span>';
-    d.onclick = () => { if (i > G.unlock) return; AU.init(); SFX.click(); G.startLevel = i; buildLevels(); };
-    lvBox.appendChild(d);
+    d.onclick = () => {
+      if (locked) return; AU.init(); SFX.click(); G.startLevel = i;
+      if (startNow) startGame(i, { skipIntro: true }); else buildLevels(box);
+    };
+    box.appendChild(d);
   });
 }
 const charBox = $('chars'); const charCv = [];
 CHARS.forEach((c, i) => {
   const d = document.createElement('div'); d.className = 'char';
   const cv = document.createElement('canvas'); cv.width = 180; cv.height = 190; charCv.push(cv);
-  d.appendChild(cv); d.insertAdjacentHTML('beforeend', '<b>' + c.name + '</b><small>' + c.desc + '</small>');
-  d.onclick = () => { AU.init(); SFX.click(); G.char = c; store.set('catwars_char', c.id); markChar(); };
-  d.ondblclick = () => $('btnStart').click();
+  d.appendChild(cv); d.insertAdjacentHTML('beforeend', '<b>' + c.name + '</b><small class="kind"></small>');
+  d.onclick = () => { AU.init(); if (!hasChar(c.id)) { SFX.erase(); return; } SFX.click(); G.char = c; store.set('catwars_char', c.id); markChar(); };
+  d.ondblclick = () => { if (hasChar(c.id)) $('btnStart').click(); };
   charBox.appendChild(d);
 });
-G.char = CHARS.find(c => c.id === store.get('catwars_char', 'leia')) || CHARS[0];
-function markChar() { [...charBox.children].forEach((d, i) => d.classList.toggle('sel', CHARS[i] === G.char)); }
+G.char = CHARS.find(c => c.id === store.get('catwars_char', 'finn') && hasChar(c.id)) || CHARS.find(c => c.id === 'finn');
+function markChar() {
+  CHARS.forEach((c, i) => {
+    const d = charBox.children[i], ok = hasChar(c.id), li = rescueLevel(c.id);
+    d.classList.toggle('sel', c === G.char); d.classList.toggle('locked', !ok);
+    d.querySelector('.kind').innerHTML = !ok ? '🔒 Rescátalo en el nivel ' + (li + 1) + ' (' + LEVELS[li].name + ')'
+      : c.special ? '⭐ Especial: ' + c.special.name : 'Normal';
+  });
+  buildSabers();
+}
+function buildSabers() {
+  const box = $('sabers'); box.innerHTML = '<span>Color del sable:</span>';
+  [''].concat(LEVELS.map(L => L.saberReward.c)).forEach(c => {
+    const owned = c === '' || SAVE.sabers.includes(c), col = c === '' ? G.char.saber : c;
+    const b = document.createElement('button');
+    b.className = 'sab' + ((SAVE.saber || '') === c ? ' sel' : '') + (owned ? '' : ' locked');
+    b.style.background = owned ? (col === 'rainbow' ? 'linear-gradient(90deg,#f33,#fa0,#ff0,#3f3,#0ff,#36f,#f3f)' : col) : '#333';
+    b.title = c === '' ? 'Original' : 'Sable ' + LEVELS.find(L => L.saberReward.c === c).saberReward.name + (owned ? '' : ' (misión 1 del nivel ' + (LEVELS.findIndex(L => L.saberReward.c === c) + 1) + ')');
+    b.textContent = owned ? '' : '🔒';
+    b.onclick = () => { if (!owned) { SFX.erase(); return; } SAVE.saber = c; persist(); SFX.click(); buildSabers(); };
+    box.appendChild(b);
+  });
+}
 function animateSelect(t) {
   CHARS.forEach((c, i) => {
     const sel = c === G.char, ph = (t * 1.2) % 2.2;
-    paintPortrait(charCv[i], c, 2, sel ? t : 0, sel && ph < 1 ? ph : -1);
+    if (!hasChar(c.id)) {
+      paintPortrait(charCv[i], c, 2, 0, -1);
+      const g = charCv[i].getContext('2d');
+      g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(12,8,36,.92)'; g.fillRect(0, 0, 180, 190);
+      g.globalCompositeOperation = 'source-over'; g.font = '900 56px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffe81f'; g.fillText('?', 96, 120);
+      return;
+    }
+    const o = sel ? Object.assign({}, c, { saber: saberColor(t) }) : c;
+    paintPortrait(charCv[i], o, 2, sel ? t : 0, sel && ph < 1 ? ph : -1);
   });
 }
 function openMenu() {
-  G.state = 'menu'; document.body.classList.remove('playing');
+  G.state = 'menu'; document.body.classList.remove('playing', 'inCity');
   G.keepScore = false;
   $('bestMenu').textContent = fmt(G.best); buildLevels(); show('menu');
 }
 function openSelect(newPadawan) {
   G.state = 'select'; document.body.classList.remove('playing');
   G.keepScore = !!newPadawan;
-  $('selTitle').textContent = newPadawan ? '¡Nuevo padawan! Elige otro gato (nivel de dificultad ' + (G.cycle + 1) + ')' : 'Personaje principal · elige el que quieras';
+  $('selTitle').textContent = newPadawan ? '¡Nuevo padawan! Elige otro gato (nivel de dificultad ' + (G.cycle + 1) + ')' : 'Personaje principal · rescata padawans para conseguir más';
   markChar(); show('select');
 }
 
 $('btnPlay').onclick = () => { AU.init(); SFX.click(); openSelect(false); };
+$('btnCity').onclick = () => { SFX.click(); openCity(); };
+$('cityExit').onclick = () => { SFX.click(); closeCity(); };
+$('cityLeft').onclick = () => { CITY.cam -= cityLayout().CS * 8; };
+$('cityRight').onclick = () => { CITY.cam += cityLayout().CS * 8; };
+$('cityReset').onclick = () => {
+  if (!confirm('¿Empezar una ciudad nueva? Se borrará la que tienes.')) return;
+  SAVE.world = null; loadCity(); saveCity(); initCityNpcs(); SFX.erase();
+};
 $('btnBack').onclick = () => { SFX.click(); if (G.keepScore) { G.cycle--; } openMenu(); };
 $('btnStart').onclick = () => {
   AU.init(); SFX.click();
@@ -1288,13 +1862,14 @@ $('btnStart').onclick = () => {
 };
 $('btnResume').onclick = togglePause;
 $('btnQuit').onclick = () => { saveBest(); openMenu(); };
-$('btnRetry').onclick = () => { AU.init(); startGame(G.startLevel, { skipIntro: true }); };
+$('btnRetry').onclick = () => { AU.init(); startGame(G.level, { skipIntro: true }); };
 $('btnChange').onclick = () => { SFX.click(); openSelect(false); };
 $('btnMenu').onclick = () => { SFX.click(); openMenu(); };
 $('btnMenu2').onclick = () => { SFX.click(); openMenu(); };
 $('btnNewPadawan').onclick = () => {
   SFX.click(); G.cycle++;
-  const others = CHARS.filter(c => c !== G.char); G.char = others[Math.floor(Math.random() * others.length)];
+  const others = CHARS.filter(c => c !== G.char && hasChar(c.id));
+  if (others.length) G.char = others[Math.floor(Math.random() * others.length)];
   openSelect(true);
 };
 $('btnMute').onclick = e => { e.stopPropagation(); AU.init(); AU.setMute(!AU.muted); };
@@ -1303,23 +1878,33 @@ $('intro').addEventListener('pointerdown', beginPlay);
 AU.setMute(AU.muted);
 
 /* ---------- controles ---------- */
-const JUMP_KEYS = ['Space', 'ArrowUp', 'KeyW'], SABER_KEYS = ['KeyX', 'KeyJ', 'KeyK', 'ShiftLeft', 'ShiftRight', 'ArrowRight'];
+const JUMP_KEYS = ['Space', 'ArrowUp', 'KeyW'], SABER_KEYS = ['KeyX', 'KeyJ', 'KeyK', 'ShiftLeft', 'ShiftRight', 'ArrowRight'], SPECIAL_KEYS = ['KeyC', 'KeyZ', 'KeyE'];
 addEventListener('keydown', e => {
   const c = e.code;
-  if (JUMP_KEYS.includes(c) || c === 'ArrowDown' || c === 'ArrowRight') e.preventDefault();
+  if (JUMP_KEYS.includes(c) || c === 'ArrowDown' || c === 'ArrowRight' || c === 'ArrowLeft') e.preventDefault();
+  if (G.state === 'city') {
+    if (c === 'ArrowLeft') CITY.cam -= cityLayout().CS * 2;
+    else if (c === 'ArrowRight') CITY.cam += cityLayout().CS * 2;
+    else if (c === 'Escape') closeCity();
+    return;
+  }
   if (e.repeat) return;
   AU.init();
   if (G.state === 'play') {
     if (JUMP_KEYS.includes(c)) jump();
     else if (SABER_KEYS.includes(c)) saber();
+    else if (SPECIAL_KEYS.includes(c)) special();
     else if (c === 'KeyP' || c === 'Escape') togglePause();
   } else if (G.state === 'pause') { if (c === 'KeyP' || c === 'Escape' || c === 'Enter' || c === 'Space') togglePause(); }
   else if (G.state === 'intro') { if (c === 'Space' || c === 'Enter' || SABER_KEYS.includes(c) || c === 'ArrowUp') beginPlay(); }
   else if (G.state === 'over') { if (c === 'Enter' || c === 'Space' || c === 'KeyR') $('btnRetry').click(); }
   else if (G.state === 'select') {
     if (c === 'Enter' || c === 'Space') $('btnStart').click();
-    else if (c === 'ArrowRight' || c === 'ArrowLeft') { const i = CHARS.indexOf(G.char); G.char = CHARS[(i + (c === 'ArrowRight' ? 1 : CHARS.length - 1)) % CHARS.length]; SFX.click(); markChar(); }
-    else if (c === 'Escape') $('btnBack').click();
+    else if (c === 'ArrowRight' || c === 'ArrowLeft') {
+      const d = c === 'ArrowRight' ? 1 : CHARS.length - 1; let i = CHARS.indexOf(G.char);
+      do { i = (i + d) % CHARS.length; } while (!hasChar(CHARS[i].id));
+      G.char = CHARS[i]; store.set('catwars_char', G.char.id); SFX.click(); markChar();
+    } else if (c === 'Escape') $('btnBack').click();
   } else if (G.state === 'menu') { if (c === 'Enter' || c === 'Space') $('btnPlay').click(); }
   else if (G.state === 'victory') { if (c === 'Enter') $('btnNewPadawan').click(); }
 });
@@ -1327,16 +1912,33 @@ addEventListener('keyup', e => { if (JUMP_KEYS.includes(e.code)) jumpRelease(); 
 cvs.addEventListener('contextmenu', e => e.preventDefault());
 cvs.addEventListener('pointerdown', e => {
   AU.init();
+  if (G.state === 'city') {
+    CITY.down = true; CITY.lastCell = ''; CITY.stamped = false;
+    if (CITY.tool === 'mover' || e.button === 2) CITY.panX = e.clientX;
+    else { const cell = cityCell(e); if (cell) cityApply(cell); }
+    return;
+  }
   if (G.state !== 'play') return;
-  if (e.pointerType === 'mouse') { if (e.button === 2) saber(); else jump(); }
+  if (e.pointerType === 'mouse') { if (e.button === 2) saber(); else if (e.button === 1) special(); else jump(); }
   else { if (e.clientX < innerWidth / 2) jump(); else saber(); }
 });
-cvs.addEventListener('pointerup', jumpRelease);
+cvs.addEventListener('pointermove', e => {
+  if (G.state !== 'city') return;
+  CITY.hover = e.pointerType === 'mouse' ? cityCell(e) : null;
+  if (!CITY.down) return;
+  if (CITY.panX !== null) { CITY.cam -= (e.clientX - CITY.panX) * DPR; CITY.panX = e.clientX; }
+  else { const cell = cityCell(e); if (cell) cityApply(cell); }
+});
+const cityUp = () => { CITY.down = false; CITY.panX = null; if (CITY.dirty) { saveCity(); CITY.dirty = false; } };
+cvs.addEventListener('pointerup', e => { if (G.state === 'city') cityUp(); else jumpRelease(); });
+cvs.addEventListener('pointercancel', cityUp);
+cvs.addEventListener('pointerleave', () => { CITY.hover = null; });
+cvs.addEventListener('wheel', e => { if (G.state === 'city') { e.preventDefault(); CITY.cam += (e.deltaY + e.deltaX) * DPR; } }, { passive: false });
 const tb = (id, fn) => { const el = $(id); el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AU.init(); fn(); }); };
-tb('tJump', jump); tb('tSaber', saber);
+tb('tJump', jump); tb('tSaber', saber); tb('tSpecial', special);
 $('tJump').addEventListener('pointerup', jumpRelease);
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'play') togglePause(); });
-addEventListener('pagehide', saveBest);
+addEventListener('pagehide', () => { saveBest(); if (grid) saveCity(); });
 
 openMenu();
 requestAnimationFrame(frame);
